@@ -120,6 +120,8 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
             Calendar cal_birth = Calendar.getInstance();
             cal_birth.setTime(new Date());
             mEvent.mDtStart = mEvent.mDtEnd = cal_birth.getTimeInMillis();
+        } else {
+            mSelectedCal.setTimeInMillis(mEvent.mDtStart);
         }
 
         ((EditText)view.findViewById(R.id.et_event_name)).setText(MiscUtil.getValidString(mEvent.mTitle));
