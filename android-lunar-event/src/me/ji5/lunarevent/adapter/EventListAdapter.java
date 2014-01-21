@@ -74,7 +74,8 @@ public class EventListAdapter extends ArrayAdapter<GoogleEvent> {
         // 올해 음력 생일
         Calendar cal_this_lunar_birth = IcuCalendarUtil.getCalendarFromLunar(cal_today.get(Calendar.YEAR), cal_birth_lunar.get(Calendar.MONTH) + 1, cal_birth_lunar.get(Calendar.DAY_OF_MONTH));
 
-        viewHolder.tv_title.setText(event.mTitle + " (만" + MiscUtil.getInternationalAge(cal_birth.get(Calendar.YEAR), cal_birth.get(Calendar.MONTH) + 1, cal_birth.get(Calendar.DAY_OF_MONTH)) + "세)");
+        viewHolder.tv_title.setText(event.mTitle);
+        viewHolder.tv_title_sub.setText("(만" + MiscUtil.getInternationalAge(cal_birth.get(Calendar.YEAR), cal_birth.get(Calendar.MONTH) + 1, cal_birth.get(Calendar.DAY_OF_MONTH)) + "세)");
         viewHolder.tv_subtitle.setText(MiscUtil.getDateString(null, cal_this_lunar_birth.getTimeInMillis()));
         viewHolder.tv_desc.setText(MiscUtil.getDateString("(음력) yyyy년 M월 d일", cal_birth_lunar.getTimeInMillis()));
         viewHolder.tv_timestamp.setText(MiscUtil.getDateString(null, event.mDtStart));
@@ -85,6 +86,7 @@ public class EventListAdapter extends ArrayAdapter<GoogleEvent> {
     protected ViewHolder createViewHolder(View convertView, int position) {
         ViewHolder viewHolder = new ViewHolder();
         viewHolder.tv_title = (TextView) convertView.findViewById(R.id.tv_title);
+        viewHolder.tv_title_sub = (TextView) convertView.findViewById(R.id.tv_title_sub);
         viewHolder.tv_subtitle = (TextView) convertView.findViewById(R.id.tv_subtitle);
         viewHolder.tv_desc = (TextView) convertView.findViewById(R.id.tv_desc);
         viewHolder.tv_timestamp = (TextView) convertView.findViewById(R.id.tv_timestamp);
@@ -94,6 +96,7 @@ public class EventListAdapter extends ArrayAdapter<GoogleEvent> {
 
     protected static final class ViewHolder {
         public TextView tv_title;
+        public TextView tv_title_sub;
         public TextView tv_subtitle;
         public TextView tv_desc;
         public TextView tv_timestamp;

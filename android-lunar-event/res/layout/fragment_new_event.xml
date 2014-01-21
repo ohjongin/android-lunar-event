@@ -36,12 +36,25 @@
             android:textSize="16sp"
             android:text="날짜"
             android:textStyle="bold"/>
-        <TextView
-            android:id="@+id/et_date"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            tools:text="Aug 20, 2012"
-            style="@android:style/Widget.Holo.Light.Spinner" />
+            android:orientation="horizontal">
+            <TextView
+                android:id="@+id/et_date"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                tools:text="Aug 20, 2012"
+                style="@android:style/Widget.Holo.Light.Spinner" />
+            <CheckBox
+                android:id="@+id/chk_lunar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="10dp"
+                android:layout_marginRight="5dp"
+                android:text="음력"/>
+        </LinearLayout>
         <TextView
             android:id="@+id/tv_lunar_date"
             android:layout_width="wrap_content"

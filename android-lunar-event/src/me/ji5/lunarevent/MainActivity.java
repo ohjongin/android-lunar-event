@@ -13,7 +13,6 @@ import com.parse.ParseUser;
 import me.ji5.lunarevent.adapter.FragmentAdapter;
 import me.ji5.lunarevent.fragment.EventListFragment;
 import me.ji5.utils.Log;
-import me.ji5.utils.MiscUtil;
 import me.ji5.utils.ParseUtil;
 import me.ji5.utils.UserProfileUtil;
 
@@ -32,8 +31,6 @@ public class MainActivity extends FragmentActivity implements EventListFragment.
 
         if (DEBUG_LOG) Log.e("email: " + UserProfileUtil.getPrimaryEmailAddress(this) + ", user: " + (ParseUser.getCurrentUser() != null ? ParseUser.getCurrentUser().getUsername() : "null"));
         if (!ParseUtil.isAuthenticated()) ParseUtil.loginParse(this);
-
-        Log.e("age: " + MiscUtil.getInternationalAge(1970, 6, 17));
     }
 
     @Override

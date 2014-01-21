@@ -15,12 +15,20 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_gravity="center"
+        android:orientation="vertical"
         android:gravity="center">
         <Button
             android:id="@+id/btn_add_new"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_margin="5dp"
-            android:text="Add New Event"/>
+            android:text="Add New Event"
+            android:visibility="gone"/>
+        <ProgressBar
+            android:id="@+id/progressbar"
+            android:layout_width="100dp"
+            android:layout_height="100dp"
+            style="@android:style/Widget.ProgressBar.Large"
+            android:visibility="visible"/>
     </LinearLayout>
 </LinearLayout>

@@ -5,13 +5,18 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v4.app.ListFragment;
+import android.text.TextUtils;
+import android.view.ContextMenu;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.ListView;
 
 import com.android.datetimepicker.date.DatePickerDialog;
 import com.android.datetimepicker.date.DatePickerDialog.OnDateSetListener;
@@ -44,6 +49,9 @@ import me.ji5.utils.ParseUtil;
 public class EventListFragment extends ListFragment implements View.OnClickListener {
     protected final static boolean DEBUG_LOG = true;
     protected OnFragmentInteractionListener mListener;
+    protected Handler mHandler = new Handler();
+    protected int mRetryCount = 0;
+    protected int mSelectedPosition = -1;
 
     /**
      * Use this factory method to create a new instance of
@@ -62,23 +70,22 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
     }
 
     @Override
+    public void onAttach(Activity activity) {
+        super.onAttach(activity);
+        try {
+            mListener = (OnFragmentInteractionListener) activity;
+        } catch (ClassCastException e) {
+            throw new ClassCastException(activity.toString()  + " must implement OnFragmentInteractionListener");
+        }
+    }
+
+    @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
         setListAdapter(new EventListAdapter(getBaseContext(), R.layout.fragment_event_list_row, new ArrayList<GoogleEvent>()));
 
-        ParseQuery<ParseObject> query = ParseQuery.getQuery(GoogleEvent.PARSE_CLASSNAME);
-        query.findInBackground(new FindCallback<ParseObject>() {
-            public void done(List<ParseObject> eventList, ParseException e) {
-                if (e == null) {
-                    for(ParseObject po : eventList) {
-                        getListAdapter().add(ParseUtil.getGoogleEvent(po));
-                    }
-                } else {
-                    Log.e("score", "Error: " + e.getMessage());
-                }
-            }
-        });
+        mHandler.postDelayed(mQueryRunnable, ParseUtil.isAuthenticated() ? 10 : 200);
     }
 
     @Override
@@ -88,6 +95,23 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
         view.findViewById(R.id.btn_add_new).setOnClickListener(this);
 
         return view;
+    }
+
+    @Override
+    public void onActivityCreated(Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+
+        registerForContextMenu(this.getListView());
+    }
+
+    @Override
+    public void onDetach() {
+        super.onDetach();
+        mListener = null;
+    }
+
+    @Override
+    public void onListItemClick(ListView listView, View view, int position, long id) {
     }
 
     @Override
@@ -103,7 +127,7 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
                 // Not implemented here
                 break;
             case R.id.action_add:
-                onAddNew();
+                onAddNew(null);
                 consumed = true;
                 break;
             default:
@@ -113,6 +137,29 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
         return consumed;
     }
 
+    @Override
+    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
+        super.onCreateContextMenu(menu, v, menuInfo);
+
+        MenuInflater inflater = this.getActivity().getMenuInflater();
+        inflater.inflate(R.menu.event_list_context_menu, menu);
+    }
+
+    @Override
+    public boolean onContextItemSelected(MenuItem item) {
+        AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
+        switch (item.getItemId()) {
+            case R.id.action_edit:
+                mSelectedPosition = info.position;
+                GoogleEvent event = getListAdapter().getItem(info.position);
+                onAddNew(event);
+                return true;
+
+            default:
+                return super.onContextItemSelected(item);
+        }
+    }    
+
     /**
      * This method is called when the sending activity has finished, with the
      * result it supplied.
@@ -121,27 +168,45 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         switch(requestCode) {
             case 0:
-                if (DEBUG_LOG) Log.e("onActivityResult():");
+                if (DEBUG_LOG) Log.d("onActivityResult():");
                 if (data != null && data.hasExtra("event")) {
-                    GoogleEvent event = data.getParcelableExtra("event");
-                    if (DEBUG_LOG)  Log.e("  event :" + event.toString());
-                    getListAdapter().add(event);
-                    getListAdapter().notifyDataSetChanged();
+                    final GoogleEvent event = data.getParcelableExtra("event");
+                    if (DEBUG_LOG) Log.d("Event :" + event.toString());
+                    if (TextUtils.isEmpty(event.mParseObjectId)) {
+                        getListAdapter().add(event);
+                        getListAdapter().notifyDataSetChanged();
 
-                    final ParseObject po = ParseUtil.getParseObject(event);
-                    po.saveInBackground(new SaveCallback() {
-                        @Override
-                        public void done(ParseException e) {
-                            if (e == null) {
-                                if (DEBUG_LOG) Log.d("saveInBackground success: " + po.get("title"));
-                            } else {
-                                Log.e(e.getMessage());
+                        final ParseObject po = ParseUtil.getParseObject(event);
+                        po.saveInBackground(new SaveCallback() {
+                            @Override
+                            public void done(ParseException e) {
+                                if (e == null) {
+                                    if (DEBUG_LOG) Log.d("saveInBackground success: " + po.get("title"));
+                                    int position = getListAdapter().getPosition(event);
+                                    if (position >= 0) {
+                                        getListAdapter().remove(event);
+                                        event.mParseObjectId = po.getObjectId();
+                                        getListAdapter().insert(event, position);
+                                    }
+                                } else {
+                                    Log.e(e.getMessage());
+                                }
                             }
+                        });
+                    } else {
+                        final ParseObject po = ParseUtil.getParseObject(event);
+                        po.setObjectId(event.mParseObjectId);
+                        po.saveInBackground();
+                        if (mSelectedPosition >= 0 && mSelectedPosition < getListAdapter().getCount()) {
+                            getListAdapter().remove(getListAdapter().getItem(mSelectedPosition));
+                            getListAdapter().insert(event, mSelectedPosition);
                         }
-                    });
+                        getListAdapter().notifyDataSetChanged();
+                    }
                 }
                 break;
         }
+        mSelectedPosition = -1;
     }
 
     // TODO: Rename method, update argument and hook method into UI event
@@ -150,23 +215,6 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
             mListener.onFragmentInteraction(uri);
         }
     }
-
-    @Override
-    public void onAttach(Activity activity) {
-        super.onAttach(activity);
-        try {
-            mListener = (OnFragmentInteractionListener) activity;
-        } catch (ClassCastException e) {
-            throw new ClassCastException(activity.toString()  + " must implement OnFragmentInteractionListener");
-        }
-    }
-
-    @Override
-    public void onDetach() {
-        super.onDetach();
-        mListener = null;
-    }
-
 
     private OnDateSetListener mDateSetListener = new OnDateSetListener() {
         @Override
@@ -188,15 +236,49 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.btn_add_new:
-                onAddNew();
+                onAddNew(null);
                 break;
         }
     }
 
-    protected void onAddNew() {
+    protected void onAddNew(GoogleEvent event) {
         Intent intent = new Intent(getBaseContext(), NewEventActivity.class);
+        if (event != null) {
+            intent.putExtra("event", event);
+        }
         startActivityForResult(intent, 0);
     }
+
+    protected Runnable mQueryRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (DEBUG_LOG) Log.d("Runnable count: " + mRetryCount);
+            if (mRetryCount > 10) return;
+
+            if (!ParseUtil.isAuthenticated()) {
+                mRetryCount++;
+                mHandler.postDelayed(mQueryRunnable, 100);
+                return;
+            }
+
+            if (DEBUG_LOG) Log.d("ParseUtil.isAuthenticated() return TRUE!!, " + mRetryCount);
+
+            ParseQuery<ParseObject> query = ParseQuery.getQuery(GoogleEvent.PARSE_CLASSNAME);
+            query.findInBackground(new FindCallback<ParseObject>() {
+                public void done(List<ParseObject> eventList, ParseException e) {
+                    if (e == null) {
+                        for(ParseObject po : eventList) {
+                            getListAdapter().add(ParseUtil.getGoogleEvent(po));
+                        }
+                    } else {
+                        Log.e("score", "Error: " + e.getMessage());
+                    }
+                    getView().findViewById(R.id.progressbar).setVisibility(View.GONE);
+                    getView().findViewById(R.id.btn_add_new).setVisibility(View.VISIBLE);
+                }
+            });
+        }
+    };
 
     /**
      * This interface must be implemented by activities that contain this

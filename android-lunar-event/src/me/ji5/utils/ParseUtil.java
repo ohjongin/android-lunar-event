@@ -73,8 +73,10 @@ public class ParseUtil {
                     ParseACL acl = new ParseACL();
                     acl.setPublicReadAccess(false);
                     acl.setPublicWriteAccess(false);
-                    acl.setReadAccess(ParseUser.getCurrentUser(), true);
-                    acl.setWriteAccess(ParseUser.getCurrentUser(), true);
+                    if (ParseUser.getCurrentUser() != null) {
+                        acl.setReadAccess(ParseUser.getCurrentUser(), true);
+                        acl.setWriteAccess(ParseUser.getCurrentUser(), true);
+                    }
 
                     user_signup.setUsername(username);
                     user_signup.setPassword(username);
@@ -134,6 +136,7 @@ public class ParseUtil {
         event.mDtStart = po.getDate("dtstart").getTime();
         event.mDtEnd = po.getDate("dtend").getTime();
         event.mEventLocation = MiscUtil.getValidString(po.getString("location"));
+        event.mParseObjectId = po.getObjectId();
 
         return event;
     }

@@ -22,6 +22,7 @@ public class GoogleEvent implements Parcelable {
     public long mDtStart;
     public long mDtEnd;
     public String mEventLocation;
+    public String mParseObjectId;
 
     public static String[] EVENT_PROJECTION = new String[] {
             CalendarContract.Events._ID,
@@ -68,6 +69,7 @@ public class GoogleEvent implements Parcelable {
         dest.writeLong(this.mDtStart);
         dest.writeLong(this.mDtEnd);
         dest.writeString(this.mEventLocation);
+        dest.writeString(this.mParseObjectId);
         dest.writeStringArray(this.EVENT_PROJECTION);
     }
 
@@ -79,6 +81,7 @@ public class GoogleEvent implements Parcelable {
         this.mDtStart = in.readLong();
         this.mDtEnd = in.readLong();
         this.mEventLocation = in.readString();
+        this.mParseObjectId = in.readString();
         this.EVENT_PROJECTION = in.createStringArray();
     }
 

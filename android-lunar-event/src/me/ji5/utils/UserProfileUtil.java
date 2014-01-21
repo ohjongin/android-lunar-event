@@ -10,29 +10,13 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.ContactsContract;
-import android.telephony.TelephonyManager;
-import android.text.TextUtils;
 import android.util.Patterns;
-import android.widget.Toast;
-
-import com.parse.LogInCallback;
-import com.parse.ParseACL;
-import com.parse.ParseException;
-import com.parse.ParseFile;
-import com.parse.ParseUser;
-import com.parse.SignUpCallback;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Calendar;
-import java.util.GregorianCalendar;
-import java.util.Locale;
-import java.util.TimeZone;
 import java.util.regex.Pattern;
-
-import me.ji5.lunarevent.R;
 
 /**
  * Created by ohjongin on 14. 1. 20.

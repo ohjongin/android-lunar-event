@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Vibrator;
 import android.support.v4.app.Fragment;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -14,6 +15,8 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
+import android.widget.CheckBox;
+import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
 
@@ -32,7 +35,9 @@ import me.ji5.data.LunarCalendar;
 import me.ji5.lunarevent.R;
 import me.ji5.lunarevent.adapter.CalendarSpinnerAdapter;
 import me.ji5.utils.CalendarContentResolver;
+import me.ji5.utils.IcuCalendarUtil;
 import me.ji5.utils.Log;
+import me.ji5.utils.MiscUtil;
 
 
 /**
@@ -72,9 +77,11 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-        }
         setHasOptionsMenu(true);
+
+        if (getActivity().getIntent() != null && getActivity().getIntent().hasExtra("event")) {
+            mEvent = getActivity().getIntent().getParcelableExtra("event");
+        }
 
         mCalResolver = new CalendarContentResolver(getBaseContext());
         mCalendarList = mCalResolver.getCalendarList();
@@ -93,20 +100,31 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
         sp.setAdapter(adapter);
         sp.setOnItemSelectedListener(this);
 
-        if (mCalendarList.size() > 0) {
+        if (mEvent.mCalendarId > 0) {
+            for(GoogleCalendar cal : mCalendarList) {
+                if (cal.mId == mEvent.mCalendarId) {
+                    sp.setSelection(adapter.getPosition(cal));
+                    break;
+                }
+            }
+        } else if (mCalendarList.size() > 0) {
             mEvent.mCalendarId = mCalendarList.get(0).mId;
         }
 
         view.findViewById(R.id.et_date).setOnClickListener(this);
         view.findViewById(R.id.btn_done).setOnClickListener(this);
 
-        Calendar cal_birth = Calendar.getInstance();
-        cal_birth.setTime(new Date());
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy년 M월 d일 (EEE)", Locale.KOREA);
-        TextView et_date = (TextView)view.findViewById(R.id.et_date);
-        et_date.setText(sdf.format(new Date(cal_birth.getTimeInMillis())));
+        if (mEvent.mDtStart == 0L) {
+            Calendar cal_birth = Calendar.getInstance();
+            cal_birth.setTime(new Date());
+            mEvent.mDtStart = mEvent.mDtEnd = cal_birth.getTimeInMillis();
+        }
 
-        mEvent.mDtStart = mEvent.mDtEnd = cal_birth.getTimeInMillis();
+        ((EditText)view.findViewById(R.id.et_event_name)).setText(MiscUtil.getValidString(mEvent.mTitle));
+
+        TextView et_date = (TextView)view.findViewById(R.id.et_date);
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy년 M월 d일 (EEE)", Locale.KOREA);
+        et_date.setText(sdf.format(new Date(mEvent.mDtStart)));
 
         // Inflate the layout for this fragment
         return view;
@@ -180,6 +198,29 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
             case R.id.et_date:
                 Vibrator vib = (Vibrator)getBaseContext().getSystemService(Context.VIBRATOR_SERVICE);
                 vib.vibrate(20);
+
+                Calendar cal_default = Calendar.getInstance();
+                cal_default.setTimeInMillis(mEvent.mDtStart);
+
+                Calendar cal_today = Calendar.getInstance();
+                cal_today.setTimeInMillis(new Date().getTime());
+
+                String title = ((EditText)getView().findViewById(R.id.et_event_name)).getText().toString();
+                if (!TextUtils.isEmpty(title) && (cal_default.get(Calendar.YEAR) == cal_today.get(Calendar.YEAR))) {
+                    int year_offset = 0;
+                    if (title.contains("어머니") || title.contains("엄마")) year_offset = 60;
+                    else if (title.contains("아버지") || title.contains("아빠")) year_offset = 70;
+                    else if (title.contains("할머니") || title.contains("할아버지")) year_offset = 80;
+                    else if (title.contains("와이프") || title.contains("마누라")) year_offset = 40;
+                    else if (title.contains("달링") || title.contains("허니")) year_offset = 30;
+                    else if (title.contains("딸") || title.contains("아들")) year_offset = 10;
+                    else if (title.contains("내") || title.contains("나")) year_offset = 40;
+
+                    cal_default.set(cal_today.get(Calendar.YEAR) - year_offset, cal_today.get(Calendar.MONTH), cal_today.get(Calendar.DAY_OF_MONTH));
+
+                    mEvent.mDtStart = mEvent.mDtEnd = cal_default.getTimeInMillis();
+                }
+
                 chooseDate();
                 break;
             case R.id.btn_done:
@@ -198,6 +239,14 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
         DatePickerDialog dlg = DatePickerDialog.newInstance(new DatePickerDialog.OnDateSetListener() {
             @Override
             public void onDateSet(DatePickerDialog dialog, int year, int monthOfYear, int dayOfMonth) {
+                boolean is_lunar = ((CheckBox)getView().findViewById(R.id.chk_lunar)).isChecked();
+                if (is_lunar) {
+                    Calendar cal_solar = IcuCalendarUtil.getCalendarFromLunar(year, monthOfYear + 1, dayOfMonth);
+                    year = cal_solar.get(Calendar.YEAR);
+                    monthOfYear = cal_solar.get(Calendar.MONTH);
+                    dayOfMonth = cal_solar.get(Calendar.DAY_OF_MONTH);
+                }
+
                 LunarCalendar lc = new LunarCalendar();
                 ChineseCalendar cc = lc.toLunar(year, monthOfYear + 1, dayOfMonth);
 
