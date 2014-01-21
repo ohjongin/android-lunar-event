@@ -82,7 +82,22 @@ public class EventListAdapter extends ArrayAdapter<GoogleEvent> {
 
         return convertView;
     }
-    
+
+    public void sort(int sort_type) {
+        switch (sort_type) {
+            case 0:
+                sort(GoogleEvent.compareTitle);
+                break;
+            case 1:
+                sort(GoogleEvent.compareBirth);
+                break;
+            case 2:
+                sort(GoogleEvent.compareRecent);
+                break;
+        }
+        notifyDataSetChanged();
+    }
+
     protected ViewHolder createViewHolder(View convertView, int position) {
         ViewHolder viewHolder = new ViewHolder();
         viewHolder.tv_title = (TextView) convertView.findViewById(R.id.tv_title);

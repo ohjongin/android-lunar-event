@@ -5,7 +5,10 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.provider.CalendarContract;
 
+import java.text.Collator;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.Locale;
 
@@ -23,6 +26,7 @@ public class GoogleEvent implements Parcelable {
     public long mDtEnd;
     public String mEventLocation;
     public String mParseObjectId;
+    public long mComingBirth;
 
     public static String[] EVENT_PROJECTION = new String[] {
             CalendarContract.Events._ID,
@@ -92,6 +96,50 @@ public class GoogleEvent implements Parcelable {
 
         public GoogleEvent[] newArray(int size) {
             return new GoogleEvent[size];
+        }
+    };
+
+    public void calcDate() {
+        // 올해 음력 생일 계산을 위한 오늘 날짜
+        final Calendar cal_today = Calendar.getInstance();
+        cal_today.setTime(new Date());
+
+        // 양력 생일
+        Calendar cal_birth = Calendar.getInstance();
+        cal_birth.setTimeInMillis(mDtStart);
+        cal_birth.set(cal_today.get(Calendar.YEAR), cal_birth.get(Calendar.MONTH), cal_birth.get(Calendar.DAY_OF_MONTH));
+
+        if (cal_birth.getTimeInMillis() < cal_today.getTimeInMillis()) {
+            cal_birth.set(cal_today.get(Calendar.YEAR) + 1, cal_birth.get(Calendar.MONTH), cal_birth.get(Calendar.DAY_OF_MONTH));
+        }
+
+        mComingBirth = cal_birth.getTimeInMillis();
+    }
+
+    //Comparator 를 만든다.
+    public final static Comparator<GoogleEvent> compareTitle = new Comparator<GoogleEvent>() {
+        private final Collator collator = Collator.getInstance();
+        @Override
+        public int compare(GoogleEvent obj1,GoogleEvent obj2) {
+            return collator.compare(obj1.mTitle, obj2.mTitle);
+        }
+    };
+
+    //Comparator 를 만든다.
+    public final static Comparator<GoogleEvent> compareBirth = new Comparator<GoogleEvent>() {
+        @Override
+        public int compare(GoogleEvent obj1,GoogleEvent obj2) {
+            return Long.valueOf(obj1.mDtStart).compareTo(Long.valueOf(obj2.mDtStart));
+        }
+    };
+
+    //Comparator 를 만든다.
+    public final static Comparator<GoogleEvent> compareRecent = new Comparator<GoogleEvent>() {
+        @Override
+        public int compare(GoogleEvent obj1,GoogleEvent obj2) {
+            obj1.calcDate();
+            obj2.calcDate();
+            return Long.valueOf(obj1.mComingBirth).compareTo(Long.valueOf(obj2.mComingBirth));
         }
     };
 

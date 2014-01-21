@@ -1,7 +1,9 @@
 package me.ji5.lunarevent.fragment;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -66,6 +68,7 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
         fragment.setArguments(args);
         return fragment;
     }
+    
     public EventListFragment() {
         // Required empty public constructor
     }
@@ -131,6 +134,10 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
                 onAddNew(null);
                 consumed = true;
                 break;
+            case R.id.action_sort:
+                onActionSort();
+                consumed = true;
+                break;
             default:
                 break;
         }
@@ -164,7 +171,7 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
                 mSelectedPosition = info.position;
                 event = getListAdapter().getItem(info.position);
                 getListAdapter().remove(event);
-                getListAdapter().notifyDataSetChanged();
+                sort();
                 ParseObject po = ParseUtil.getParseObject(event);
                 po.deleteInBackground();
                 Toast.makeText(getBaseContext(), "이벤트가 삭제되었습니다.", Toast.LENGTH_SHORT).show();
@@ -193,7 +200,7 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
                     if (DEBUG_LOG) Log.d("Event :" + event.toString());
                     if (TextUtils.isEmpty(event.mParseObjectId)) {
                         getListAdapter().add(event);
-                        getListAdapter().notifyDataSetChanged();
+                        sort();
 
                         final ParseObject po = ParseUtil.getParseObject(event);
                         po.saveInBackground(new SaveCallback() {
@@ -206,6 +213,7 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
                                         getListAdapter().remove(event);
                                         event.mParseObjectId = po.getObjectId();
                                         getListAdapter().insert(event, position);
+                                        sort();
                                     }
                                 } else {
                                     Log.e(e.getMessage());
@@ -220,7 +228,7 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
                             getListAdapter().remove(getListAdapter().getItem(mSelectedPosition));
                             getListAdapter().insert(event, mSelectedPosition);
                         }
-                        getListAdapter().notifyDataSetChanged();
+                        sort();
                     }
                 }
                 break;
@@ -267,6 +275,29 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
         }
         startActivityForResult(intent, 0);
     }
+    
+    protected void onActionSort() {
+        CharSequence[] array = {"제목순", "생일순", "다가오는 생일순"};
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(getBaseContext());
+        builder.setTitle("정렬")
+                .setSingleChoiceItems(array, 0, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                    }
+                })
+                .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        int index = ((AlertDialog) dialog).getListView().getCheckedItemPosition();
+                        getListAdapter().sort(index);
+                        getActivity().getSharedPreferences("pref",0).edit().putInt("sort_type", index).commit();
+                    }
+                }).create().show();
+    }
 
     protected Runnable mQueryRunnable = new Runnable() {
         @Override
@@ -289,6 +320,7 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
                         for(ParseObject po : eventList) {
                             getListAdapter().add(ParseUtil.getGoogleEvent(po));
                         }
+                        sort();
                     } else {
                         Log.e("score", "Error: " + e.getMessage());
                     }
@@ -298,6 +330,11 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
             });
         }
     };
+
+    protected void sort() {
+        int sort_type = getActivity().getSharedPreferences("pref",0).getInt("sort_type", 0);
+        getListAdapter().sort(sort_type);
+    }
 
     /**
      * This interface must be implemented by activities that contain this
