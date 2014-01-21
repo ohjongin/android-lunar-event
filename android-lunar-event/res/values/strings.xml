@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">음력 일정</string>
+    <string name="new_event">새 일정 추가</string>
+
+    <string name="login_success">로그인 성공!</string>
+    <string name="login_fail">로그인 실패!</string>
+    <string name="account_not_registered">계정이 등록되지 않았습니다.</string>
+    <string name="account_registered">계정이 등록되었습니다.</string>
+    <string name="account_registered_fail">계정 등록에 실패하였습니다.</string>
+
+</resources>
