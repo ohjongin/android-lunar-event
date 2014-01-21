@@ -74,7 +74,7 @@
                 android:gravity="center_vertical"
                 android:textAlignment="textEnd"
                 android:singleLine="true"
-                android:textSize="15sp"
+                android:textSize="14sp"
                 tools:text="subtitle"/>
         </RelativeLayout>
         <LinearLayout

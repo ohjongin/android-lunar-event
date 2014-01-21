@@ -17,6 +17,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ListView;
+import android.widget.Toast;
 
 import com.android.datetimepicker.date.DatePickerDialog;
 import com.android.datetimepicker.date.DatePickerDialog.OnDateSetListener;
@@ -147,17 +148,35 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
 
     @Override
     public boolean onContextItemSelected(MenuItem item) {
+        boolean consumed = false;
+        GoogleEvent event = null;
+
         AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
         switch (item.getItemId()) {
             case R.id.action_edit:
                 mSelectedPosition = info.position;
-                GoogleEvent event = getListAdapter().getItem(info.position);
+                event = getListAdapter().getItem(info.position);
                 onAddNew(event);
-                return true;
+                consumed = true;
+                break;
+
+            case R.id.action_delete:
+                mSelectedPosition = info.position;
+                event = getListAdapter().getItem(info.position);
+                getListAdapter().remove(event);
+                getListAdapter().notifyDataSetChanged();
+                ParseObject po = ParseUtil.getParseObject(event);
+                po.deleteInBackground();
+                Toast.makeText(getBaseContext(), "이벤트가 삭제되었습니다.", Toast.LENGTH_SHORT).show();
+                consumed = true;
+                break;
 
             default:
-                return super.onContextItemSelected(item);
+                super.onContextItemSelected(item);
+                break;
         }
+
+        return consumed;
     }    
 
     /**

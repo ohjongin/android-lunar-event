@@ -16,6 +16,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -56,6 +57,7 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
     protected CalendarContentResolver mCalResolver;
     protected ArrayList<GoogleCalendar> mCalendarList;
     protected GoogleEvent mEvent = new GoogleEvent();
+    protected Calendar mSelectedCal = Calendar.getInstance();
 
     /**
      * Use this factory method to create a new instance of
@@ -125,6 +127,30 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
         TextView et_date = (TextView)view.findViewById(R.id.et_date);
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy년 M월 d일 (EEE)", Locale.KOREA);
         et_date.setText(sdf.format(new Date(mEvent.mDtStart)));
+
+        ((CheckBox)view.findViewById(R.id.chk_lunar)).setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                int year;
+                int monthOfYear;
+                int dayOfMonth;
+
+                if (isChecked) {
+                    // 최초 날짜를 선택할 때 음력으로 체크되었고, 현재 음력으로 체크되어 있으면 입력된 날짜를 음력으로 계산
+                    Calendar cal_solar = IcuCalendarUtil.getCalendarFromLunar(mSelectedCal.get(Calendar.YEAR), mSelectedCal.get(Calendar.MONTH) + 1, mSelectedCal.get(Calendar.DAY_OF_MONTH));
+                    year = cal_solar.get(Calendar.YEAR);
+                    monthOfYear = cal_solar.get(Calendar.MONTH);
+                    dayOfMonth = cal_solar.get(Calendar.DAY_OF_MONTH);
+                } else {
+                    // 음력으로 체크하였지만 음력 체크를 해지하는 경우 양력으로 계산
+                    year = mSelectedCal.get(Calendar.YEAR);
+                    monthOfYear = mSelectedCal.get(Calendar.MONTH);
+                    dayOfMonth = mSelectedCal.get(Calendar.DAY_OF_MONTH);
+                }
+
+                calcDate(year, monthOfYear, dayOfMonth);
+            }
+        });
 
         // Inflate the layout for this fragment
         return view;
@@ -208,8 +234,8 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
                 String title = ((EditText)getView().findViewById(R.id.et_event_name)).getText().toString();
                 if (!TextUtils.isEmpty(title) && (cal_default.get(Calendar.YEAR) == cal_today.get(Calendar.YEAR))) {
                     int year_offset = 0;
-                    if (title.contains("어머니") || title.contains("엄마")) year_offset = 60;
-                    else if (title.contains("아버지") || title.contains("아빠")) year_offset = 70;
+                    if (title.contains("어머니") || title.contains("엄마") || title.contains("장모")) year_offset = 60;
+                    else if (title.contains("아버지") || title.contains("아빠") || title.contains("장인")) year_offset = 70;
                     else if (title.contains("할머니") || title.contains("할아버지")) year_offset = 80;
                     else if (title.contains("와이프") || title.contains("마누라")) year_offset = 40;
                     else if (title.contains("달링") || title.contains("허니")) year_offset = 30;
@@ -239,6 +265,8 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
         DatePickerDialog dlg = DatePickerDialog.newInstance(new DatePickerDialog.OnDateSetListener() {
             @Override
             public void onDateSet(DatePickerDialog dialog, int year, int monthOfYear, int dayOfMonth) {
+                mSelectedCal.set(year, monthOfYear, dayOfMonth);
+
                 boolean is_lunar = ((CheckBox)getView().findViewById(R.id.chk_lunar)).isChecked();
                 if (is_lunar) {
                     Calendar cal_solar = IcuCalendarUtil.getCalendarFromLunar(year, monthOfYear + 1, dayOfMonth);
@@ -247,41 +275,45 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
                     dayOfMonth = cal_solar.get(Calendar.DAY_OF_MONTH);
                 }
 
-                LunarCalendar lc = new LunarCalendar();
-                ChineseCalendar cc = lc.toLunar(year, monthOfYear + 1, dayOfMonth);
-
-                int lunar_year = LunarCalendar.getYear(cc);
-                int lunar_month = LunarCalendar.getMonth(cc);
-                int lunar_day = LunarCalendar.getDay(cc);
-
-                final Calendar cal_today = Calendar.getInstance();
-                cal_today.setTime(new Date());
-                com.ibm.icu.util.Calendar this_year = lc.fromLunar(cal_today.get(Calendar.YEAR), lunar_month, lunar_day);
-                
-                if (DEBUG_LOG) Log.e("양력: " + year, "년 ", monthOfYear + 1, "월 ", dayOfMonth, "일");
-                if (DEBUG_LOG) Log.e("음력: " + lunar_year + "년 " + lunar_month + "월 " + lunar_day + "일");
-                if (DEBUG_LOG) Log.e("올해 음력 생일: " + LunarCalendar.getYear(this_year)+ "년 "
-                        + LunarCalendar.getMonth(this_year) + "월 "
-                        + LunarCalendar.getDay(this_year) + "일");
-
-                Calendar cal_birth = Calendar.getInstance();
-                cal_birth.set(year, monthOfYear, dayOfMonth);
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy년 M월 d일 (EEE)", Locale.KOREA);
-                TextView et_date = (TextView)getView().findViewById(R.id.et_date);
-                et_date.setText(sdf.format(new Date(cal_birth.getTimeInMillis())));
-
-                mEvent.mDtStart = mEvent.mDtEnd = cal_birth.getTimeInMillis();
-
-                Calendar cal_lunar = Calendar.getInstance();
-                cal_lunar.set(lunar_year, lunar_month - 1, lunar_day);
-                SimpleDateFormat sdf_lunar = new SimpleDateFormat("yyyy년 M월 d일 (음력)", Locale.KOREA);
-                TextView tv_lunar_date = (TextView)getView().findViewById(R.id.tv_lunar_date);
-                tv_lunar_date.setText(sdf_lunar.format(new Date(cal_lunar.getTimeInMillis())));
-                tv_lunar_date.setVisibility(View.VISIBLE);
+                calcDate(year, monthOfYear, dayOfMonth);
             }
         }, calDefault.get(Calendar.YEAR), calDefault.get(Calendar.MONTH), calDefault.get(Calendar.DAY_OF_MONTH));
         dlg.show(getActivity().getFragmentManager(), "datepickerdlg");
 
+    }
+
+    protected void calcDate(int year, int month, int day) {
+        LunarCalendar lc = new LunarCalendar();
+        ChineseCalendar cc = lc.toLunar(year, month + 1, day);
+
+        int lunar_year = LunarCalendar.getYear(cc);
+        int lunar_month = LunarCalendar.getMonth(cc);
+        int lunar_day = LunarCalendar.getDay(cc);
+
+        final Calendar cal_today = Calendar.getInstance();
+        cal_today.setTime(new Date());
+        com.ibm.icu.util.Calendar this_year = lc.fromLunar(cal_today.get(Calendar.YEAR), lunar_month, lunar_day);
+
+        if (DEBUG_LOG) Log.e("양력: " + year, "년 ", month + 1, "월 ", day, "일");
+        if (DEBUG_LOG) Log.e("음력: " + lunar_year + "년 " + lunar_month + "월 " + lunar_day + "일");
+        if (DEBUG_LOG) Log.e("올해 음력 생일: " + LunarCalendar.getYear(this_year)+ "년 "
+                + LunarCalendar.getMonth(this_year) + "월 "
+                + LunarCalendar.getDay(this_year) + "일");
+
+        Calendar cal_birth = Calendar.getInstance();
+        cal_birth.set(year, month, day);
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy년 M월 d일 (EEE)", Locale.KOREA);
+        TextView et_date = (TextView)getView().findViewById(R.id.et_date);
+        et_date.setText(sdf.format(new Date(cal_birth.getTimeInMillis())));
+
+        mEvent.mDtStart = mEvent.mDtEnd = cal_birth.getTimeInMillis();
+
+        Calendar cal_lunar = Calendar.getInstance();
+        cal_lunar.set(lunar_year, lunar_month - 1, lunar_day);
+        SimpleDateFormat sdf_lunar = new SimpleDateFormat("yyyy년 M월 d일 (음력)", Locale.KOREA);
+        TextView tv_lunar_date = (TextView)getView().findViewById(R.id.tv_lunar_date);
+        tv_lunar_date.setText(sdf_lunar.format(new Date(cal_lunar.getTimeInMillis())));
+        tv_lunar_date.setVisibility(View.VISIBLE);
     }
 
     /**

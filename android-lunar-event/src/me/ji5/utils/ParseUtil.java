@@ -119,6 +119,8 @@ public class ParseUtil {
         po.put("dtstart", new Date(event.mDtStart));
         po.put("dtend", new Date(event.mDtEnd));
         po.put("location", MiscUtil.getValidString(event.mEventLocation));
+        if (!TextUtils.isEmpty(event.mParseObjectId)) po.setObjectId(event.mParseObjectId);
+
         return po;
     }
 
