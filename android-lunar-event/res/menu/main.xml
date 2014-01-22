@@ -2,16 +2,16 @@
     <item android:id="@+id/action_add"
           android:orderInCategory="100"
           android:showAsAction="never"
-          android:title="새 일정 추가"/>
+          android:title="@string/add_new_event"/>
 
     <item android:id="@+id/action_sort"
           android:orderInCategory="100"
           android:showAsAction="never"
-          android:title="일정 정렬"/>
+          android:title="@string/sort_event"/>
 
     <item android:id="@+id/action_settings"
         android:orderInCategory="100"
         android:showAsAction="never"
-        android:title="설정"
+        android:title="@string/settings"
         android:visible="false"/>
 </menu>

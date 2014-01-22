@@ -17,7 +17,7 @@ import me.ji5.utils.ParseUtil;
 import me.ji5.utils.UserProfileUtil;
 
 public class MainActivity extends FragmentActivity implements EventListFragment.OnFragmentInteractionListener {
-    protected final static boolean DEBUG_LOG = true;
+    protected final static boolean DEBUG_LOG = false;
 
     protected ViewPager mPager;
     protected FragmentAdapter mAdapter;

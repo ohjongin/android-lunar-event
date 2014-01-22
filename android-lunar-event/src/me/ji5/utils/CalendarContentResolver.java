@@ -8,6 +8,7 @@ import android.net.Uri;
 import android.provider.CalendarContract;
 
 import java.util.ArrayList;
+import java.util.TimeZone;
 
 import me.ji5.data.GoogleCalendar;
 import me.ji5.data.GoogleEvent;
@@ -16,12 +17,15 @@ import me.ji5.data.GoogleEvent;
  * Created by ohjongin on 14. 1. 2.
  */
 public class CalendarContentResolver {
+    protected final static boolean DEBUG_LOG = false;
     public static final Uri CALENDAR_URI = CalendarContract.Calendars.CONTENT_URI;
     public static final Uri EVENT_URI = CalendarContract.Events.CONTENT_URI;
 
-    ContentResolver contentResolver;
+    protected Context mContext;
+    protected ContentResolver contentResolver;
 
     public CalendarContentResolver(Context context) {
+        mContext = context;
         contentResolver = context.getContentResolver();
     }    
     
@@ -40,6 +44,13 @@ public class CalendarContentResolver {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+        if (DEBUG_LOG) {
+            for(GoogleEvent event : eventList) {
+                Log.d("Event: " + event.toString());
+            }
+        }
+
         return eventList;
     }
 
@@ -62,16 +73,36 @@ public class CalendarContentResolver {
 
     public long addEvent(GoogleEvent ge) {
         ContentValues values = new ContentValues();
-        values.put(CalendarContract.Events.DTSTART, ge.mDtStart);
-        values.put(CalendarContract.Events.DTEND, ge.mDtEnd);
+
+        ge.calcDate();
+        values.put(CalendarContract.Events.DTSTART, ge.mComingBirthLunar);
+        values.put(CalendarContract.Events.DTEND, ge.mComingBirthLunar);
         values.put(CalendarContract.Events.TITLE, ge.mTitle);
-        values.put(CalendarContract.Events.DESCRIPTION, ge.mDescription);
+        values.put(CalendarContract.Events.DESCRIPTION, ge.mDescription + "\n" + "만 " + MiscUtil.getInternationalAge(ge.mDtStart)  + "세 생일");
         values.put(CalendarContract.Events.CALENDAR_ID, ge.mCalendarId);
+        values.put(CalendarContract.Events.CUSTOM_APP_PACKAGE, mContext.getPackageName());
+        values.put(CalendarContract.Events.ALL_DAY, 1);
+        values.put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().getID());
         // values.put(CalendarContract.Events.EVENT_TIMEZONE, "America/Los_Angeles");
         Uri uri = contentResolver.insert(CalendarContract.Events.CONTENT_URI, values);
 
+        if (DEBUG_LOG) {
+            Log.d("Event: " + ge.toString());
+            Log.d("URI: " + uri.toString());
+            Log.d("TargetDate: " + MiscUtil.getDateString(null, ge.mComingBirthLunar));
+        }
+
+
+        long id;
+        try {
+            id = Long.parseLong(uri.getLastPathSegment());
+        } catch (Exception e) {
+            e.printStackTrace();
+            id = -1;
+        }
+
         // get the event ID that is the last element in the Uri
-        return Long.parseLong(uri.getLastPathSegment());
+        return id;
     }
 
     public static void testGetEventList(Context context) {

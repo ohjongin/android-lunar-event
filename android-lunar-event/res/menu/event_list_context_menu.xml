@@ -4,11 +4,16 @@
     <item android:id="@+id/action_edit"
           android:orderInCategory="100"
           android:showAsAction="never"
-          android:title="일정 수정"/>
+          android:title="@string/edit_event"/>
+
+    <item android:id="@+id/action_addto_calendar"
+          android:orderInCategory="100"
+          android:showAsAction="never"
+          android:title="@string/addto_calendar"/>
 
     <item android:id="@+id/action_delete"
           android:orderInCategory="100"
           android:showAsAction="never"
-          android:title="일정 삭제"/>
+          android:title="@string/delete_event"/>
 
 </menu>

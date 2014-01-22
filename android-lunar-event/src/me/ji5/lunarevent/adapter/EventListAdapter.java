@@ -34,7 +34,7 @@ public class EventListAdapter extends ArrayAdapter<GoogleEvent> {
         if (objects != null && objects.size() > 0) {
             addAll(objects);
         } else {
-            Log.e("Data array is NULL!!");
+            if (DEBUG_LOG) Log.e("Data array is NULL!!");
         }
     }
 
@@ -60,6 +60,9 @@ public class EventListAdapter extends ArrayAdapter<GoogleEvent> {
             return convertView;
         }
 
+
+        event.calcDate();
+
         // 올해 음력 생일 계산을 위한 오늘 날짜
         final Calendar cal_today = Calendar.getInstance();
         cal_today.setTime(new Date());
@@ -71,14 +74,19 @@ public class EventListAdapter extends ArrayAdapter<GoogleEvent> {
         // 양력 생일로부터 음력 생일과 금년도 음력 생일 날짜를 계산
         Calendar cal_birth_lunar = IcuCalendarUtil.getLunarCalendar(cal_birth);
 
-        // 올해 음력 생일
-        Calendar cal_this_lunar_birth = IcuCalendarUtil.getCalendarFromLunar(cal_today.get(Calendar.YEAR), cal_birth_lunar.get(Calendar.MONTH) + 1, cal_birth_lunar.get(Calendar.DAY_OF_MONTH));
+        // 올해 생일
+        Calendar coming_birth = Calendar.getInstance();
+        coming_birth.set(cal_today.get(Calendar.YEAR), cal_birth_lunar.get(Calendar.MONTH), cal_birth_lunar.get(Calendar.DAY_OF_MONTH));
+        // 올해 생일이 이미 지났다면, 내년 생일로 계산
+        if (coming_birth.getTimeInMillis() < cal_today.getTimeInMillis()) {
+            coming_birth.set(cal_today.get(Calendar.YEAR) + 1, cal_birth_lunar.get(Calendar.MONTH), cal_birth_lunar.get(Calendar.DAY_OF_MONTH));
+        }
 
         viewHolder.tv_title.setText(event.mTitle);
-        viewHolder.tv_title_sub.setText("(만" + MiscUtil.getInternationalAge(cal_birth.get(Calendar.YEAR), cal_birth.get(Calendar.MONTH) + 1, cal_birth.get(Calendar.DAY_OF_MONTH)) + "세)");
-        viewHolder.tv_subtitle.setText(MiscUtil.getDateString(null, cal_this_lunar_birth.getTimeInMillis()));
-        viewHolder.tv_desc.setText(MiscUtil.getDateString("(음력) yyyy년 M월 d일", cal_birth_lunar.getTimeInMillis()));
-        viewHolder.tv_timestamp.setText(MiscUtil.getDateString(null, event.mDtStart));
+        viewHolder.tv_title_sub.setText("(만" + MiscUtil.getInternationalAge(event.mDtStart) + "세)");
+        viewHolder.tv_subtitle.setText(MiscUtil.getDayDurationString(MiscUtil.getDayDuration(coming_birth, cal_today)));
+        viewHolder.tv_desc.setText(MiscUtil.getDateString(null, event.mComingBirthLunar));
+        viewHolder.tv_timestamp.setText(MiscUtil.getDateString("(음력) yyyy년 M월 d일", event.mDtStartLunar));
 
         return convertView;
     }

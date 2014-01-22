@@ -10,6 +10,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.app.ListFragment;
 import android.text.TextUtils;
+import android.text.format.DateUtils;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -21,8 +22,6 @@ import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.Toast;
 
-import com.android.datetimepicker.date.DatePickerDialog;
-import com.android.datetimepicker.date.DatePickerDialog.OnDateSetListener;
 import com.parse.FindCallback;
 import com.parse.ParseException;
 import com.parse.ParseObject;
@@ -36,7 +35,9 @@ import me.ji5.data.GoogleEvent;
 import me.ji5.lunarevent.NewEventActivity;
 import me.ji5.lunarevent.R;
 import me.ji5.lunarevent.adapter.EventListAdapter;
+import me.ji5.utils.CalendarContentResolver;
 import me.ji5.utils.Log;
+import me.ji5.utils.MiscUtil;
 import me.ji5.utils.ParseUtil;
 
 
@@ -50,7 +51,7 @@ import me.ji5.utils.ParseUtil;
  *
  */
 public class EventListFragment extends ListFragment implements View.OnClickListener {
-    protected final static boolean DEBUG_LOG = true;
+    protected final static boolean DEBUG_LOG = false;
     protected OnFragmentInteractionListener mListener;
     protected Handler mHandler = new Handler();
     protected int mRetryCount = 0;
@@ -167,6 +168,12 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
                 consumed = true;
                 break;
 
+            case R.id.action_addto_calendar:
+                event = getListAdapter().getItem(info.position);
+                addToCalendar(event);
+                consumed = true;
+                break;
+
             case R.id.action_delete:
                 mSelectedPosition = info.position;
                 event = getListAdapter().getItem(info.position);
@@ -236,19 +243,11 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
         mSelectedPosition = -1;
     }
 
-    // TODO: Rename method, update argument and hook method into UI event
     public void onButtonPressed(Uri uri) {
         if (mListener != null) {
             mListener.onFragmentInteraction(uri);
         }
     }
-
-    private OnDateSetListener mDateSetListener = new OnDateSetListener() {
-        @Override
-        public void onDateSet(DatePickerDialog dlg, int year, int monthOfYear, int dayOfMonth) {
-
-        }
-    };
 
     @Override
     public EventListAdapter getListAdapter() {
@@ -277,7 +276,7 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
     }
     
     protected void onActionSort() {
-        CharSequence[] array = {"제목순", "생일순", "다가오는 생일순"};
+        CharSequence[] array = {getString(R.string.sort_by_title), getString(R.string.sort_by_birth), getString(R.string.sort_by_recent)};
 
         AlertDialog.Builder builder = new AlertDialog.Builder(getBaseContext());
         builder.setTitle("정렬")
@@ -297,6 +296,40 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
                         getActivity().getSharedPreferences("pref",0).edit().putInt("sort_type", index).commit();
                     }
                 }).create().show();
+    }
+
+    protected void addToCalendar(GoogleEvent event) {
+        CalendarContentResolver ccr = new CalendarContentResolver(getBaseContext());
+
+
+        event.calcDate();
+        ArrayList<GoogleEvent> eventList = ccr.getEventList(event.mComingBirthLunar - DateUtils.DAY_IN_MILLIS, event.mComingBirthLunar + DateUtils.DAY_IN_MILLIS);
+        if (DEBUG_LOG) Log.e("event.mComingBirthLunar: " + MiscUtil.getDateString(null, event.mComingBirthLunar) + ", " + event.mComingBirthLunar);
+
+        GoogleEvent dup_event = null;
+        for(GoogleEvent ge : eventList) {
+            if (DEBUG_LOG) Log.e("event: " + ge.toString());
+            if (!TextUtils.isEmpty(ge.mTitle) && ge.mTitle.equals(event.mTitle)) dup_event = ge;
+        }
+
+        if (dup_event == null) {
+            long event_id = ccr.addEvent(event);
+            if (event_id < 0) {
+                Toast.makeText(getBaseContext(), "이벤트(" + event.mTitle + ") 추가 중에 알수 없는 오류가 발생했습니다.", Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(getBaseContext(), "이벤트(" + event.mTitle + ")를 구글캘린더에 추가하였습니다.", Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            Toast.makeText(getBaseContext(), "동일한 이름(" + event.mTitle + ")의 이벤트가 존재합니다.", Toast.LENGTH_LONG).show();
+
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            // Android 2.2+
+            intent.setData(Uri.parse("content://com.android.calendar/events/" + String.valueOf(dup_event.mId)));
+            // Android 2.1 and below.
+            // intent.setData(Uri.parse("content://calendar/events/" + String.valueOf(calendarEventID)));
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        }
     }
 
     protected Runnable mQueryRunnable = new Runnable() {

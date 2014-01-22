@@ -20,7 +20,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="16sp"
-            android:text="일정이름"
+            android:text="@string/event_title"
             android:textStyle="bold"/>
         <EditText
             android:id="@+id/et_event_name"
@@ -34,7 +34,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:textSize="16sp"
-            android:text="날짜"
+            android:text="@string/date"
             android:textStyle="bold"/>
         <LinearLayout
             android:layout_width="match_parent"
@@ -53,7 +53,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="10dp"
                 android:layout_marginRight="5dp"
-                android:text="음력"/>
+                android:text="@string/lunar"/>
         </LinearLayout>
         <TextView
             android:id="@+id/tv_lunar_date"
@@ -70,7 +70,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:textSize="16sp"
-            android:text="달력"
+            android:text="@string/calendar"
             android:textStyle="bold"/>
         <Spinner
             android:id="@+id/spinner_cal_list"
