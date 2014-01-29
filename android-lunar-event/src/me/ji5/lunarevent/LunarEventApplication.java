@@ -25,7 +25,7 @@ public class LunarEventApplication extends Application {
         defaultACL.setPublicReadAccess(false);
         ParseACL.setDefaultACL(defaultACL, true);
 
-        Log.setLogTag(getPackageName());
+        Log.setLogTag("LunarEvent");
         Log.setDebugMode(true);
     }
 }

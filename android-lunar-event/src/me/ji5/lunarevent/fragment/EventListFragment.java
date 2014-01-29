@@ -2,12 +2,16 @@ package me.ji5.lunarevent.fragment;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Message;
+import android.provider.CalendarContract;
 import android.support.v4.app.ListFragment;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
@@ -18,6 +22,8 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.Toast;
@@ -29,12 +35,15 @@ import com.parse.ParseQuery;
 import com.parse.SaveCallback;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import me.ji5.data.GoogleEvent;
 import me.ji5.lunarevent.NewEventActivity;
 import me.ji5.lunarevent.R;
+import me.ji5.lunarevent.ScheduleListActivity;
 import me.ji5.lunarevent.adapter.EventListAdapter;
+import me.ji5.lunarevent.provider.EventProvider;
 import me.ji5.utils.CalendarContentResolver;
 import me.ji5.utils.Log;
 import me.ji5.utils.MiscUtil;
@@ -51,11 +60,13 @@ import me.ji5.utils.ParseUtil;
  *
  */
 public class EventListFragment extends ListFragment implements View.OnClickListener {
-    protected final static boolean DEBUG_LOG = false;
+    protected final static boolean DEBUG_LOG = true;
     protected OnFragmentInteractionListener mListener;
-    protected Handler mHandler = new Handler();
     protected int mRetryCount = 0;
     protected int mSelectedPosition = -1;
+    protected ArrayList<GoogleEvent> mEventList = new ArrayList<GoogleEvent>();
+    protected Animation animSlideDownIn, animSlideUpOut;
+    protected HashMap<String, ArrayList<GoogleEvent>> mEventMapCache = new HashMap<String, ArrayList<GoogleEvent>>();
 
     /**
      * Use this factory method to create a new instance of
@@ -89,8 +100,6 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
         setListAdapter(new EventListAdapter(getBaseContext(), R.layout.fragment_event_list_row, new ArrayList<GoogleEvent>()));
-
-        mHandler.postDelayed(mQueryRunnable, ParseUtil.isAuthenticated() ? 10 : 200);
     }
 
     @Override
@@ -106,7 +115,34 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
 
+        mHandler.postDelayed(mQueryRunnable, ParseUtil.isAuthenticated() ? 10 : 200);
+
         registerForContextMenu(this.getListView());
+
+        ContentResolver cr = getBaseContext().getContentResolver();
+        Cursor c = cr.query(EventProvider.EVENT_URI, null, null, null, null);
+
+        if (c == null || c.getCount() < 1) {
+            return;
+        } else {
+            getView().findViewById(R.id.progressbar).setVisibility(View.GONE);
+            getView().findViewById(R.id.btn_add_new).setVisibility(View.VISIBLE);
+
+            c.moveToFirst();
+        }
+
+        getListAdapter().clear();
+        do {
+            GoogleEvent event = GoogleEvent.getInstance(c);
+            boolean found = existInCache(event);
+            if (!found) {
+                getListAdapter().add(event);
+                addToCache(event);
+            }
+            if (DEBUG_LOG) Log.e(event.toString());
+        } while (c.moveToNext());
+
+        sort();
     }
 
     @Override
@@ -117,6 +153,9 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
 
     @Override
     public void onListItemClick(ListView listView, View view, int position, long id) {
+        Intent intent = new Intent(getBaseContext(), ScheduleListActivity.class);
+        intent.putExtra("event", getListAdapter().getItem(position));
+        startActivity(intent);
     }
 
     @Override
@@ -164,6 +203,7 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
             case R.id.action_edit:
                 mSelectedPosition = info.position;
                 event = getListAdapter().getItem(info.position);
+                event.findEventId(getBaseContext());
                 onAddNew(event);
                 consumed = true;
                 break;
@@ -181,7 +221,7 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
                 sort();
                 ParseObject po = ParseUtil.getParseObject(event);
                 po.deleteInBackground();
-                Toast.makeText(getBaseContext(), "이벤트가 삭제되었습니다.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getBaseContext(), getBaseContext().getString(R.string.event_deleted), Toast.LENGTH_SHORT).show();
                 consumed = true;
                 break;
 
@@ -267,6 +307,48 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
         }
     }
 
+    protected void addToCache(GoogleEvent event) {
+        if (event == null) return;
+
+        ArrayList<GoogleEvent> event_list = mEventMapCache.get(event.mTitle);
+        if (event_list != null) {
+            boolean found = false;
+            for(GoogleEvent ge : event_list) {
+                if (ge.equals(event)) {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                event_list.add(event);
+            }
+        } else {
+            event_list = new ArrayList<GoogleEvent>();
+            event_list.add(event);
+            mEventMapCache.put(event.mTitle, event_list);
+
+        }
+    }
+
+    protected boolean existInCache(GoogleEvent event) {
+        boolean exist = false;
+
+        if (event == null) return false;
+
+        ArrayList<GoogleEvent> event_list = mEventMapCache.get(event.mTitle);
+        if (event_list != null) {
+            for(GoogleEvent ge : event_list) {
+                if (ge.equals(event)) {
+                    exist = true;
+                    break;
+                }
+            }
+        }
+
+        return exist;
+    }
+
     protected void onAddNew(GoogleEvent event) {
         Intent intent = new Intent(getBaseContext(), NewEventActivity.class);
         if (event != null) {
@@ -299,20 +381,22 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
     }
 
     protected void addToCalendar(GoogleEvent event) {
-        CalendarContentResolver ccr = new CalendarContentResolver(getBaseContext());
-
-
-        event.calcDate();
-        ArrayList<GoogleEvent> eventList = ccr.getEventList(event.mComingBirthLunar - DateUtils.DAY_IN_MILLIS, event.mComingBirthLunar + DateUtils.DAY_IN_MILLIS);
-        if (DEBUG_LOG) Log.e("event.mComingBirthLunar: " + MiscUtil.getDateString(null, event.mComingBirthLunar) + ", " + event.mComingBirthLunar);
-
-        GoogleEvent dup_event = null;
-        for(GoogleEvent ge : eventList) {
-            if (DEBUG_LOG) Log.e("event: " + ge.toString());
-            if (!TextUtils.isEmpty(ge.mTitle) && ge.mTitle.equals(event.mTitle)) dup_event = ge;
+        if (TextUtils.isEmpty(event.mTitle)) {
+            Toast.makeText(getBaseContext(), "이벤트 제목이 유효하지 않아서 추가하지 못했습니다.", Toast.LENGTH_LONG).show();
+            return;
         }
 
-        if (dup_event == null) {
+        CalendarContentResolver ccr = new CalendarContentResolver(getBaseContext());
+
+        event.calcDate();
+        long start = event.mComingBirthLunar - DateUtils.DAY_IN_MILLIS;
+        long end = event.mComingBirthLunar + DateUtils.DAY_IN_MILLIS;
+        String selection = "((" + CalendarContract.Events.DTSTART + " >= " + start + ") AND (" + CalendarContract.Events.DTEND + " <= " + end + ") AND (" + CalendarContract.Events.TITLE + "='"  + event.mTitle.trim() + "'))";
+
+        ArrayList<GoogleEvent> eventList = ccr.getEventList(selection);
+        if (DEBUG_LOG) Log.e("event.mComingBirthLunar: " + MiscUtil.getDateString(null, event.mComingBirthLunar) + ", " + event.mComingBirthLunar);
+
+        if (eventList.size() < 1) {
             long event_id = ccr.addEvent(event);
             if (event_id < 0) {
                 Toast.makeText(getBaseContext(), "이벤트(" + event.mTitle + ") 추가 중에 알수 없는 오류가 발생했습니다.", Toast.LENGTH_LONG).show();
@@ -324,7 +408,7 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
 
             Intent intent = new Intent(Intent.ACTION_VIEW);
             // Android 2.2+
-            intent.setData(Uri.parse("content://com.android.calendar/events/" + String.valueOf(dup_event.mId)));
+            intent.setData(Uri.parse("content://com.android.calendar/events/" + String.valueOf(eventList.get(0).mId)));
             // Android 2.1 and below.
             // intent.setData(Uri.parse("content://calendar/events/" + String.valueOf(calendarEventID)));
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -332,15 +416,107 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
         }
     }
 
+    protected void onUpdated() {
+        ArrayList<GoogleEvent> event_list = (ArrayList<GoogleEvent>)mEventList.clone();
+        for(GoogleEvent ge : event_list) {
+            if (existInCache(ge)) {
+                mEventList.remove(ge);
+            } else {
+                Uri uri = ge.insert(getBaseContext(), EventProvider.EVENT_URI);
+                if (DEBUG_LOG) Log.d("Event inserted: " + uri.toString());
+            }
+        }
+
+        if (mEventList.size() < 1) {
+            return;
+        }
+
+        getView().findViewById(R.id.progressbar).setVisibility(View.GONE);
+        getView().findViewById(R.id.btn_add_new).setVisibility(View.VISIBLE);
+
+        animSlideDownIn = AnimationUtils.loadAnimation(getBaseContext(), R.anim.slide_down_in);
+        animSlideUpOut = AnimationUtils.loadAnimation(getBaseContext(), R.anim.slide_up_out);
+
+        animSlideDownIn.setAnimationListener(new Animation.AnimationListener() {
+            @Override
+            public void onAnimationStart(Animation animation) {
+            }
+
+            @Override
+            public void onAnimationEnd(Animation animation) {
+
+            }
+
+            @Override
+            public void onAnimationRepeat(Animation animation) {
+
+            }
+        });
+
+        animSlideUpOut.setAnimationListener(new Animation.AnimationListener() {
+            @Override
+            public void onAnimationStart(Animation animation) {
+
+            }
+
+            @Override
+            public void onAnimationEnd(Animation animation) {
+                getView().findViewById(R.id.layout_top_ticker).setVisibility(View.GONE);
+                getListAdapter().clear();
+                getListAdapter().addAll(mEventList);
+                sort();
+            }
+
+            @Override
+            public void onAnimationRepeat(Animation animation) {
+
+            }
+        });
+
+        if (getListAdapter().getCount() > 0) {
+            getView().findViewById(R.id.layout_top_ticker).setVisibility(View.VISIBLE);
+            getView().findViewById(R.id.layout_top_ticker).startAnimation(animSlideDownIn);
+            getView().findViewById(R.id.layout_top_ticker).setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    getView().findViewById(R.id.layout_top_ticker).startAnimation(animSlideUpOut);
+                }
+            });
+        } else {
+            getView().findViewById(R.id.layout_top_ticker).setVisibility(View.GONE);
+            getListAdapter().clear();
+            getListAdapter().addAll(mEventList);
+            sort();
+        }
+    }
+
+    protected Handler mHandler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case 0:
+                    onUpdated();
+                    break;
+            }
+        }
+    };
+
     protected Runnable mQueryRunnable = new Runnable() {
         @Override
         public void run() {
             if (DEBUG_LOG) Log.d("Runnable count: " + mRetryCount);
-            if (mRetryCount > 10) return;
+            if (mRetryCount > 20) {
+                ParseUtil.loginParse(getBaseContext());
+                return;
+            } else if (mRetryCount > 30) {
+                Toast.makeText(getBaseContext(), "사용자 인증에 실패했습니다.", Toast.LENGTH_LONG).show();
+                getActivity().finish();
+                return;
+            }
 
             if (!ParseUtil.isAuthenticated()) {
                 mRetryCount++;
-                mHandler.postDelayed(mQueryRunnable, 100);
+                mHandler.postDelayed(mQueryRunnable, (mRetryCount < 5) ? 100 : 200);
                 return;
             }
 
@@ -351,14 +527,14 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
                 public void done(List<ParseObject> eventList, ParseException e) {
                     if (e == null) {
                         for(ParseObject po : eventList) {
-                            getListAdapter().add(ParseUtil.getGoogleEvent(po));
+                            GoogleEvent event = ParseUtil.getGoogleEvent(po);
+                            mEventList.add(event);
                         }
-                        sort();
+
+                        mHandler.obtainMessage(0).sendToTarget();
                     } else {
-                        Log.e("score", "Error: " + e.getMessage());
+                        Log.e("Error: " + e.getMessage());
                     }
-                    getView().findViewById(R.id.progressbar).setVisibility(View.GONE);
-                    getView().findViewById(R.id.btn_add_new).setVisibility(View.VISIBLE);
                 }
             });
         }

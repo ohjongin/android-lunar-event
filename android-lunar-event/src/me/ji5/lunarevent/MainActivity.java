@@ -10,7 +10,7 @@ import android.view.MenuItem;
 
 import com.parse.ParseUser;
 
-import me.ji5.lunarevent.adapter.FragmentAdapter;
+import me.ji5.lunarevent.adapter.MainFragmentAdapter;
 import me.ji5.lunarevent.fragment.EventListFragment;
 import me.ji5.utils.Log;
 import me.ji5.utils.ParseUtil;
@@ -20,7 +20,7 @@ public class MainActivity extends FragmentActivity implements EventListFragment.
     protected final static boolean DEBUG_LOG = false;
 
     protected ViewPager mPager;
-    protected FragmentAdapter mAdapter;
+    protected MainFragmentAdapter mAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,7 +59,7 @@ public class MainActivity extends FragmentActivity implements EventListFragment.
     }
 
     protected void initViews() {
-        mAdapter = new FragmentAdapter(getSupportFragmentManager());
+        mAdapter = new MainFragmentAdapter(getSupportFragmentManager());
 
         mPager = (ViewPager)findViewById(R.id.pager);
         mPager.setAdapter(mAdapter);

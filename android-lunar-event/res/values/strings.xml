@@ -24,5 +24,6 @@
     <string name="sort_by_title">제목순</string>
     <string name="sort_by_birth">연령순</string>
     <string name="sort_by_recent">최근 생일순</string>
+    <string name="event_deleted">이벤트가 목록에서 삭제되었습니다. 캘린더에 등록된 일정은 삭제되지 않습니다.</string>
 
 </resources>

@@ -6,34 +6,11 @@
     android:padding="5dp"
     android:orientation="horizontal">
 
-    <RelativeLayout
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:layout_margin="5dp"
-        android:layout_gravity="center_vertical"
-		android:visibility="gone">
-        <ImageView
-            android:id="@+id/iv_icon"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:src="@drawable/ic_launcher"/>
-        <ImageView
-            android:id="@+id/iv_downloaded"
-            android:layout_width="12dp"
-            android:layout_height="12dp"
-            android:layout_alignParentBottom="true"
-            android:layout_alignParentLeft="true"
-            android:src="@drawable/ic_launcher"
-            android:visibility="invisible"/>
-        <ImageView
-            android:id="@+id/iv_stable"
-            android:layout_width="16dp"
-            android:layout_height="16dp"
-            android:layout_alignParentTop="true"
-            android:layout_alignParentLeft="true"
-            android:src="@drawable/ic_launcher"
-            android:visibility="invisible"/>
-    </RelativeLayout>
+    <View
+        android:id="@+id/cal_color_bar"
+        android:layout_width="3dp"
+        android:layout_height="match_parent"
+        tools:background="#ff0000"/>
 
     <LinearLayout
         android:layout_width="0dp"

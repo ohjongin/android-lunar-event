@@ -7,13 +7,15 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.TextView;
 
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 
+import me.ji5.data.GoogleCalendar;
 import me.ji5.data.GoogleEvent;
 import me.ji5.lunarevent.R;
+import me.ji5.utils.CalendarContentResolver;
 import me.ji5.utils.IcuCalendarUtil;
 import me.ji5.utils.Log;
 import me.ji5.utils.MiscUtil;
@@ -23,15 +25,21 @@ import me.ji5.utils.MiscUtil;
  */
 public class EventListAdapter extends ArrayAdapter<GoogleEvent> {
     protected final static boolean DEBUG_LOG = false;
-    protected ArrayList<GoogleEvent> mEventList = new ArrayList<GoogleEvent>();
+    protected HashMap<Long, GoogleCalendar> mCalendarMap = new HashMap<Long, GoogleCalendar>();
+    protected CalendarContentResolver mCalResolver;
     protected int mLayoutResId;
 
     public EventListAdapter(Context context, int resource, List<GoogleEvent> objects) {
         super(context, resource, objects);
 
         mLayoutResId = resource;
+
+        mCalResolver = new CalendarContentResolver(context);
+        mCalendarMap = mCalResolver.getCalendarHashMap();
+
         
         if (objects != null && objects.size() > 0) {
+            clear();
             addAll(objects);
         } else {
             if (DEBUG_LOG) Log.e("Data array is NULL!!");
@@ -87,6 +95,7 @@ public class EventListAdapter extends ArrayAdapter<GoogleEvent> {
         viewHolder.tv_subtitle.setText(MiscUtil.getDayDurationString(MiscUtil.getDayDuration(coming_birth, cal_today)));
         viewHolder.tv_desc.setText(MiscUtil.getDateString(null, event.mComingBirthLunar));
         viewHolder.tv_timestamp.setText(MiscUtil.getDateString("(음력) yyyy년 M월 d일", event.mDtStartLunar));
+        viewHolder.v_cal_color_bar.setBackgroundColor(mCalendarMap.get(event.mCalendarId).mColor);
 
         return convertView;
     }
@@ -113,6 +122,7 @@ public class EventListAdapter extends ArrayAdapter<GoogleEvent> {
         viewHolder.tv_subtitle = (TextView) convertView.findViewById(R.id.tv_subtitle);
         viewHolder.tv_desc = (TextView) convertView.findViewById(R.id.tv_desc);
         viewHolder.tv_timestamp = (TextView) convertView.findViewById(R.id.tv_timestamp);
+        viewHolder.v_cal_color_bar = (View) convertView.findViewById(R.id.cal_color_bar);
 
         return viewHolder;
     }
@@ -123,5 +133,6 @@ public class EventListAdapter extends ArrayAdapter<GoogleEvent> {
         public TextView tv_subtitle;
         public TextView tv_desc;
         public TextView tv_timestamp;
+        public View v_cal_color_bar;
     }
 }

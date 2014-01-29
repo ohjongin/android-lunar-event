@@ -79,7 +79,7 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setHasOptionsMenu(true);
+        setHasOptionsMenu(false);
 
         if (getActivity().getIntent() != null && getActivity().getIntent().hasExtra("event")) {
             mEvent = getActivity().getIntent().getParcelableExtra("event");

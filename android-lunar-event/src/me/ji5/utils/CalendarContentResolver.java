@@ -8,6 +8,7 @@ import android.net.Uri;
 import android.provider.CalendarContract;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.TimeZone;
 
 import me.ji5.data.GoogleCalendar;
@@ -54,6 +55,29 @@ public class CalendarContentResolver {
         return eventList;
     }
 
+    public ArrayList<GoogleEvent> getEventList(String selection) {
+        ArrayList<GoogleEvent> eventList = new ArrayList<GoogleEvent>();
+
+        Cursor cursor = contentResolver.query(EVENT_URI, GoogleEvent.EVENT_PROJECTION, selection, null, CalendarContract.Events.DTSTART + " ASC");
+
+        try {
+            eventList.clear();
+            while (cursor.moveToNext()) {
+                eventList.add(GoogleEvent.getInstance(cursor));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        if (DEBUG_LOG) {
+            for(GoogleEvent event : eventList) {
+                Log.d("Event: " + event.toString());
+            }
+        }
+
+        return eventList;
+    }
+
     public ArrayList<GoogleCalendar> getCalendarList() {
         ArrayList<GoogleCalendar> calendarList = new ArrayList<GoogleCalendar>();
 
@@ -69,6 +93,25 @@ public class CalendarContentResolver {
             ex.printStackTrace();
         }
         return calendarList;
+    }
+    
+    public HashMap<Long, GoogleCalendar> getCalendarHashMap() {
+        HashMap<Long, GoogleCalendar> calendarMap = new HashMap<Long, GoogleCalendar>();
+
+        // Fetch a list of all calendars sync'd with the device and their display names
+        Cursor cursor = contentResolver.query(CALENDAR_URI, GoogleCalendar.CALENDARS_PROJECTION, null, null, null);
+
+        try {
+            calendarMap.clear();
+            while (cursor.moveToNext()) {
+                GoogleCalendar cal = GoogleCalendar.getInstance(cursor);
+                calendarMap.put(cal.mId, cal);
+            }
+        } catch (AssertionError ex) {
+            ex.printStackTrace();
+        }
+
+        return calendarMap;
     }
 
     public long addEvent(GoogleEvent ge) {

@@ -1,23 +1,35 @@
 package me.ji5.data;
 
+import android.content.ContentResolver;
+import android.content.ContentValues;
+import android.content.Context;
 import android.database.Cursor;
+import android.net.Uri;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.provider.CalendarContract;
+import android.text.TextUtils;
+import android.text.format.DateUtils;
 
 import java.text.Collator;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.Locale;
+import java.util.TimeZone;
 
+import me.ji5.utils.CalendarContentResolver;
 import me.ji5.utils.IcuCalendarUtil;
+import me.ji5.utils.Log;
+import me.ji5.utils.MiscUtil;
 
 /**
  * Created by ohjongin on 14. 1. 2.
  */
 public class GoogleEvent implements Parcelable {
+    protected final static boolean DEBUG_LOG = false;
     public static final String PARSE_CLASSNAME = "EventBirth";
 
     public long mId;
@@ -67,6 +79,26 @@ public class GoogleEvent implements Parcelable {
         }
 
         return event;
+    }
+    
+    public Uri insert(Context context, Uri content_uri) {
+        ContentValues values = new ContentValues();
+        ContentResolver cr = context.getContentResolver();
+
+        calcDate();
+        values.put(CalendarContract.Events.DTSTART, mDtStart);
+        values.put(CalendarContract.Events.DTEND, mDtEnd);
+        values.put(CalendarContract.Events.TITLE, mTitle);
+        values.put(CalendarContract.Events.DESCRIPTION, mDescription + "\n" + "만 " + MiscUtil.getInternationalAge(mDtStart)  + "세 생일");
+        values.put(CalendarContract.Events.CALENDAR_ID, mCalendarId);
+        values.put(CalendarContract.Events.CUSTOM_APP_PACKAGE, context.getPackageName());
+        values.put(CalendarContract.Events.ALL_DAY, 1);
+        values.put(CalendarContract.Events.EVENT_LOCATION, mEventLocation);
+        values.put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().getID());
+
+        Uri uri = cr.insert(content_uri, values);
+
+        return uri;
     }
 
     @Override
@@ -139,6 +171,25 @@ public class GoogleEvent implements Parcelable {
         mComingBirthLunar = cal_coming_birth_lunar.getTimeInMillis();
     }
 
+    public long findEventId(Context context) {
+        CalendarContentResolver ccr = new CalendarContentResolver(context);
+
+        calcDate();
+        ArrayList<GoogleEvent> eventList = ccr.getEventList(mComingBirthLunar - DateUtils.DAY_IN_MILLIS, mComingBirthLunar + DateUtils.DAY_IN_MILLIS);
+        if (DEBUG_LOG) Log.e("event.mComingBirthLunar: " + MiscUtil.getDateString(null, mComingBirthLunar) + ", " + mComingBirthLunar);
+
+        GoogleEvent found = null;
+        for(GoogleEvent ge : eventList) {
+            if (DEBUG_LOG) Log.e("event: " + ge.toString());
+            if (!TextUtils.isEmpty(ge.mTitle) && ge.mTitle.equals(mTitle)) {
+                found = ge;
+                mId = ge.mId;
+            }
+        }
+
+        return (found == null) ? -1 : found.mId;
+    }
+
     //Comparator 를 만든다.
     public final static Comparator<GoogleEvent> compareTitle = new Comparator<GoogleEvent>() {
         private final Collator collator = Collator.getInstance();
@@ -178,5 +229,15 @@ public class GoogleEvent implements Parcelable {
         sb.append(", mComingBirthLunar:" + mComingBirthLunar);
 
         return sb.toString();
+    }
+
+    public boolean equals(GoogleEvent event) {
+        boolean result = false;
+
+        if (event != null
+                && mTitle.equals(event.mTitle)
+                && mDtStart == event.mDtStart) result = true;
+
+        return result;
     }
 }
