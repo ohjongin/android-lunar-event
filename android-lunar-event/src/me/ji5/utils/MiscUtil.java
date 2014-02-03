@@ -31,23 +31,32 @@ public class MiscUtil {
         cal_birth.set(Calendar.MONTH, birth_month - 1);
         cal_birth.set(Calendar.DATE, birth_day);
 
-        return getInternationalAge(cal_birth);
+        return getInternationalAge(cal_birth, Calendar.getInstance());
     }
 
     public static int getInternationalAge(long time_milis) {
+        return getInternationalAge(time_milis, System.currentTimeMillis());
+    }
+
+    public static int getInternationalAge(long time_milis, long now_milis) {
         Calendar cal_birth = Calendar.getInstance ();
         cal_birth.setTimeInMillis(time_milis);
 
-        return getInternationalAge(cal_birth);
+        Calendar cal_now = Calendar.getInstance ();
+        cal_now.setTimeInMillis(now_milis);
+
+        return getInternationalAge(cal_birth, cal_now);
     }
 
-    public static int getInternationalAge(Calendar cal_birth) {
-        Calendar now = Calendar.getInstance ();
+    public static int getInternationalAge(Calendar cal_birth, Calendar cal_now) {
+        if (cal_now == null) {
+            cal_now = Calendar.getInstance ();
+        }
 
-        int age = now.get(Calendar.YEAR) - cal_birth.get(Calendar.YEAR);
-        if ((cal_birth.get(Calendar.MONTH) > now.get(Calendar.MONTH))
-                || (cal_birth.get(Calendar.MONTH) == now.get(Calendar.MONTH)
-                && cal_birth.get(Calendar.DAY_OF_MONTH) > now.get(Calendar.DAY_OF_MONTH))) {
+        int age = cal_now.get(Calendar.YEAR) - cal_birth.get(Calendar.YEAR);
+        if ((cal_birth.get(Calendar.MONTH) > cal_now.get(Calendar.MONTH))
+                || (cal_birth.get(Calendar.MONTH) == cal_now.get(Calendar.MONTH)
+                && cal_birth.get(Calendar.DAY_OF_MONTH) > cal_now.get(Calendar.DAY_OF_MONTH))) {
             age--;
         }
 
@@ -75,7 +84,18 @@ public class MiscUtil {
     }
 
     public static int getDayDuration(Calendar src, Calendar dest)  {
-        long duration = (src.getTimeInMillis() > dest.getTimeInMillis()) ? src.getTimeInMillis() - dest.getTimeInMillis() : dest.getTimeInMillis() - src.getTimeInMillis();
+        if (dest == null) {
+            dest = Calendar.getInstance();
+            dest.setTime(new Date());
+        }
+
+        long duration = getDayDuration(src.getTimeInMillis(), dest.getTimeInMillis());
+
+        return (int)(duration / DateUtils.DAY_IN_MILLIS);
+    }
+
+    public static int getDayDuration(long src, long dest)  {
+        long duration = Math.abs(src - dest);
 
         return (int)(duration / DateUtils.DAY_IN_MILLIS);
     }
@@ -83,9 +103,10 @@ public class MiscUtil {
     public static String getDayDurationString(int duration) {
         String result;
 
-        if (duration % 7 == 0) {
-            if (duration == 7) result = "일주일 전";
-            else result = (duration / 7) + "주 전";
+        if (duration == 7) {
+            result = "일주일 전";
+        } else if (duration == 1) {
+            result = "내일";
         } else if (duration == 0) {
             result = "오늘";
         } else if (duration < 0) {

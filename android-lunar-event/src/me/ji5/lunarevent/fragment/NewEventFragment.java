@@ -6,8 +6,10 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Vibrator;
+import android.provider.CalendarContract;
 import android.support.v4.app.Fragment;
 import android.text.TextUtils;
+import android.text.format.DateUtils;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -56,7 +58,9 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
     protected OnFragmentInteractionListener mListener;
     protected CalendarContentResolver mCalResolver;
     protected ArrayList<GoogleCalendar> mCalendarList;
+    protected ArrayList<GoogleEvent> mEventList;
     protected GoogleEvent mEvent = new GoogleEvent();
+    protected GoogleEvent mEventOrg = new GoogleEvent();
     protected Calendar mSelectedCal = Calendar.getInstance();
 
     /**
@@ -81,11 +85,18 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(false);
 
+        mCalResolver = new CalendarContentResolver(getBaseContext());
+
         if (getActivity().getIntent() != null && getActivity().getIntent().hasExtra("event")) {
-            mEvent = getActivity().getIntent().getParcelableExtra("event");
+            mEventOrg = getActivity().getIntent().getParcelableExtra("event");
+            mEvent = mEventOrg.clone();
+            long start = mEvent.mComingBirthLunar - DateUtils.DAY_IN_MILLIS;
+            long end = mEvent.mComingBirthLunar + DateUtils.YEAR_IN_MILLIS * 20;
+            String selection = "((" + CalendarContract.Events.DTSTART + " >= " + start + ") AND (" + CalendarContract.Events.DTEND + " <= " + end + ") AND (" + CalendarContract.Events.TITLE + "='"  + mEvent.mTitle.trim() + "'))";
+
+            mEventList = mCalResolver.getEventList(selection);
         }
 
-        mCalResolver = new CalendarContentResolver(getBaseContext());
         mCalendarList = mCalResolver.getCalendarList();
         for(GoogleCalendar cal : mCalendarList) {
             Log.d(cal.toString());
@@ -94,7 +105,7 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,  Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_new_event, container, false);
+        final View view = inflater.inflate(R.layout.fragment_new_event, container, false);
 
         CalendarSpinnerAdapter adapter = new CalendarSpinnerAdapter(getBaseContext(), R.layout.layout_spinner_cal_list, mCalendarList);
         //스피너 속성
@@ -122,6 +133,7 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
             mEvent.mDtStart = mEvent.mDtEnd = cal_birth.getTimeInMillis();
         } else {
             mSelectedCal.setTimeInMillis(mEvent.mDtStart);
+            calcDate(view, mSelectedCal.get(Calendar.YEAR), mSelectedCal.get(Calendar.MONTH), mSelectedCal.get(Calendar.DAY_OF_MONTH));
         }
 
         ((EditText)view.findViewById(R.id.et_event_name)).setText(MiscUtil.getValidString(mEvent.mTitle));
@@ -150,12 +162,28 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
                     dayOfMonth = mSelectedCal.get(Calendar.DAY_OF_MONTH);
                 }
 
-                calcDate(year, monthOfYear, dayOfMonth);
+                calcDate(view, year, monthOfYear, dayOfMonth);
             }
         });
 
         // Inflate the layout for this fragment
         return view;
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+
+        CalendarContentResolver ccr = new CalendarContentResolver(getBaseContext());
+        String title = ((EditText)getView().findViewById(R.id.et_event_name)).getText().toString();
+
+        boolean changed = !mEventOrg.mTitle.equals(title);
+
+        if (changed) {
+            for(GoogleEvent ge : mEventList) {
+                //ccr.updateEvent(ge);
+            }
+        }
     }
 
     @Override
@@ -277,14 +305,14 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
                     dayOfMonth = cal_solar.get(Calendar.DAY_OF_MONTH);
                 }
 
-                calcDate(year, monthOfYear, dayOfMonth);
+                calcDate(getView(), year, monthOfYear, dayOfMonth);
             }
         }, calDefault.get(Calendar.YEAR), calDefault.get(Calendar.MONTH), calDefault.get(Calendar.DAY_OF_MONTH));
         dlg.show(getActivity().getFragmentManager(), "datepickerdlg");
 
     }
 
-    protected void calcDate(int year, int month, int day) {
+    protected void calcDate(View view, int year, int month, int day) {
         LunarCalendar lc = new LunarCalendar();
         ChineseCalendar cc = lc.toLunar(year, month + 1, day);
 
@@ -305,7 +333,7 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
         Calendar cal_birth = Calendar.getInstance();
         cal_birth.set(year, month, day);
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy년 M월 d일 (EEE)", Locale.KOREA);
-        TextView et_date = (TextView)getView().findViewById(R.id.et_date);
+        TextView et_date = (TextView)view.findViewById(R.id.et_date);
         et_date.setText(sdf.format(new Date(cal_birth.getTimeInMillis())));
 
         mEvent.mDtStart = mEvent.mDtEnd = cal_birth.getTimeInMillis();
@@ -313,7 +341,7 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
         Calendar cal_lunar = Calendar.getInstance();
         cal_lunar.set(lunar_year, lunar_month - 1, lunar_day);
         SimpleDateFormat sdf_lunar = new SimpleDateFormat("yyyy년 M월 d일 (음력)", Locale.KOREA);
-        TextView tv_lunar_date = (TextView)getView().findViewById(R.id.tv_lunar_date);
+        TextView tv_lunar_date = (TextView)view.findViewById(R.id.tv_lunar_date);
         tv_lunar_date.setText(sdf_lunar.format(new Date(cal_lunar.getTimeInMillis())));
         tv_lunar_date.setVisibility(View.VISIBLE);
     }
@@ -329,7 +357,6 @@ public class NewEventFragment extends Fragment implements AdapterView.OnItemSele
      * >Communicating with Other Fragments</a> for more information.
      */
     public interface OnFragmentInteractionListener {
-        // TODO: Update argument type and name
         public void onFragmentInteraction(Uri uri, Intent intent);
     }
 

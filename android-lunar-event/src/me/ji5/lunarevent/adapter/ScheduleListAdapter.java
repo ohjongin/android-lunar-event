@@ -1,20 +1,18 @@
 package me.ji5.lunarevent.adapter;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.TextView;
 
-import java.util.Calendar;
-import java.util.Date;
 import java.util.List;
 
 import me.ji5.data.GoogleEvent;
 import me.ji5.lunarevent.R;
 import me.ji5.utils.CalendarContentResolver;
-import me.ji5.utils.IcuCalendarUtil;
 import me.ji5.utils.Log;
 import me.ji5.utils.MiscUtil;
 
@@ -24,28 +22,13 @@ import me.ji5.utils.MiscUtil;
 public class ScheduleListAdapter extends ArrayAdapter<GoogleEvent> {
     protected final static boolean DEBUG_LOG = false;
     protected CalendarContentResolver mCalResolver;
-    protected GoogleEvent mEvent = new GoogleEvent();
     protected int mLayoutResId;
 
-    public ScheduleListAdapter(Context context, int resource, List<GoogleEvent> objects, GoogleEvent event) {
+    public ScheduleListAdapter(Context context, int resource, List<GoogleEvent> objects) {
         super(context, resource, objects);
 
         mLayoutResId = resource;
-
         mCalResolver = new CalendarContentResolver(context);
-
-
-        if (objects != null && objects.size() > 0) {
-            clear();
-            addAll(objects);
-        } else {
-            if (DEBUG_LOG) Log.e("Data array is NULL!!");
-        }
-
-
-        if (event != null) {
-            mEvent = event;
-        }
     }
 
     @Override
@@ -70,32 +53,21 @@ public class ScheduleListAdapter extends ArrayAdapter<GoogleEvent> {
             return convertView;
         }
 
-
-        event.calcDate();
-
-        // 올해 음력 생일 계산을 위한 오늘 날짜
-        final Calendar cal_today = Calendar.getInstance();
-        cal_today.setTime(new Date());
-
-        // 양력 생일
-        Calendar cal_birth = Calendar.getInstance();
-        cal_birth.setTimeInMillis(event.mDtStart);
-
-        // 양력 생일로부터 음력 생일과 금년도 음력 생일 날짜를 계산
-        Calendar cal_birth_lunar = IcuCalendarUtil.getLunarCalendar(cal_birth);
-
-        // 올해 생일
-        Calendar coming_birth = Calendar.getInstance();
-        coming_birth.set(cal_today.get(Calendar.YEAR), cal_birth_lunar.get(Calendar.MONTH), cal_birth_lunar.get(Calendar.DAY_OF_MONTH));
-        // 올해 생일이 이미 지났다면, 내년 생일로 계산
-        if (coming_birth.getTimeInMillis() < cal_today.getTimeInMillis()) {
-            coming_birth.set(cal_today.get(Calendar.YEAR) + 1, cal_birth_lunar.get(Calendar.MONTH), cal_birth_lunar.get(Calendar.DAY_OF_MONTH));
-        }
-
         viewHolder.tv_title.setText(MiscUtil.getDateString(null, event.mComingBirthLunar));
         viewHolder.tv_title_sub.setText("");
-        viewHolder.tv_desc.setText("만 " + MiscUtil.getInternationalAge(mEvent.mDtStart) + "세");
-        viewHolder.tv_timestamp.setText(MiscUtil.getDayDurationString(MiscUtil.getDayDuration(coming_birth, cal_today)));
+        viewHolder.tv_desc.setText("만 " + MiscUtil.getInternationalAge(event.mDtStartLunar, event.mComingBirthLunar) + "세");
+        viewHolder.tv_timestamp.setText(MiscUtil.getDayDurationString(MiscUtil.getDayDuration(event.mComingBirthLunar, System.currentTimeMillis())));
+
+        if (event.mId < 0) {
+            viewHolder.tv_title.setTextColor(Color.LTGRAY);
+            viewHolder.tv_desc.setTextColor(Color.LTGRAY);
+            viewHolder.tv_timestamp.setTextColor(Color.LTGRAY);
+        } else {
+            viewHolder.tv_title.setTextColor(Color.BLACK);
+            viewHolder.tv_desc.setTextColor(Color.BLACK);
+            viewHolder.tv_timestamp.setTextColor(Color.BLACK);
+
+        }
 
         return convertView;
     }

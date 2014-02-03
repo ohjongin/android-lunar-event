@@ -18,7 +18,7 @@ import me.ji5.data.GoogleEvent;
  * Created by ohjongin on 14. 1. 2.
  */
 public class CalendarContentResolver {
-    protected final static boolean DEBUG_LOG = false;
+    protected final static boolean DEBUG_LOG = true;
     public static final Uri CALENDAR_URI = CalendarContract.Calendars.CONTENT_URI;
     public static final Uri EVENT_URI = CalendarContract.Events.CONTENT_URI;
 
@@ -117,7 +117,6 @@ public class CalendarContentResolver {
     public long addEvent(GoogleEvent ge) {
         ContentValues values = new ContentValues();
 
-        ge.calcDate();
         values.put(CalendarContract.Events.DTSTART, ge.mComingBirthLunar);
         values.put(CalendarContract.Events.DTEND, ge.mComingBirthLunar);
         values.put(CalendarContract.Events.TITLE, ge.mTitle);
@@ -146,6 +145,31 @@ public class CalendarContentResolver {
 
         // get the event ID that is the last element in the Uri
         return id;
+    }
+
+    public long updateEvent(GoogleEvent ge) {
+        ContentValues values = new ContentValues();
+
+        values.put(CalendarContract.Events._ID, ge.mId);
+        values.put(CalendarContract.Events.DTSTART, ge.mComingBirthLunar);
+        values.put(CalendarContract.Events.DTEND, ge.mComingBirthLunar);
+        values.put(CalendarContract.Events.TITLE, ge.mTitle);
+        values.put(CalendarContract.Events.DESCRIPTION, ge.mDescription + "\n" + "만 " + MiscUtil.getInternationalAge(ge.mDtStart)  + "세 생일");
+        values.put(CalendarContract.Events.CALENDAR_ID, ge.mCalendarId);
+        values.put(CalendarContract.Events.CUSTOM_APP_PACKAGE, mContext.getPackageName());
+        values.put(CalendarContract.Events.ALL_DAY, 1);
+        values.put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().getID());
+        // values.put(CalendarContract.Events.EVENT_TIMEZONE, "America/Los_Angeles");
+        int updated = contentResolver.update(CalendarContract.Events.CONTENT_URI, values, CalendarContract.Events._ID + "=" + ge.mId, null);
+
+        if (DEBUG_LOG) {
+            Log.d("Event: " + ge.toString());
+            Log.d("updated: " + updated);
+            Log.d("TargetDate: " + MiscUtil.getDateString(null, ge.mComingBirthLunar));
+        }
+
+        // get the event ID that is the last element in the Uri
+        return updated;
     }
 
     public static void testGetEventList(Context context) {

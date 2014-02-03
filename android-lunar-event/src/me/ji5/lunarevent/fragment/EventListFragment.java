@@ -46,7 +46,6 @@ import me.ji5.lunarevent.adapter.EventListAdapter;
 import me.ji5.lunarevent.provider.EventProvider;
 import me.ji5.utils.CalendarContentResolver;
 import me.ji5.utils.Log;
-import me.ji5.utils.MiscUtil;
 import me.ji5.utils.ParseUtil;
 
 
@@ -60,7 +59,7 @@ import me.ji5.utils.ParseUtil;
  *
  */
 public class EventListFragment extends ListFragment implements View.OnClickListener {
-    protected final static boolean DEBUG_LOG = true;
+    protected final static boolean DEBUG_LOG = false;
     protected OnFragmentInteractionListener mListener;
     protected int mRetryCount = 0;
     protected int mSelectedPosition = -1;
@@ -153,9 +152,40 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
 
     @Override
     public void onListItemClick(ListView listView, View view, int position, long id) {
-        Intent intent = new Intent(getBaseContext(), ScheduleListActivity.class);
-        intent.putExtra("event", getListAdapter().getItem(position));
-        startActivity(intent);
+        final GoogleEvent event = getListAdapter().getItem(position);
+        CalendarContentResolver ccr = new CalendarContentResolver(getBaseContext());
+
+        long start = event.mComingBirthLunar - DateUtils.DAY_IN_MILLIS;
+        long end = event.mComingBirthLunar + DateUtils.YEAR_IN_MILLIS * 10;
+        String selection = "((" + CalendarContract.Events.DTSTART + " >= " + start + ") AND (" + CalendarContract.Events.DTEND + " <= " + end + ") AND (" + CalendarContract.Events.TITLE + "='"  + event.mTitle.trim() + "'))";
+
+        ArrayList<GoogleEvent> eventList = ccr.getEventList(selection);
+        if (eventList == null || eventList.size() < 1) {
+            AlertDialog.Builder builder = new AlertDialog.Builder(getBaseContext());
+            builder.setTitle(getBaseContext().getString(R.string.dlg_title_ask_add))
+                    .setMessage(getBaseContext().getString(R.string.dlg_msg_no_registered_event))
+                    .setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            event.addToCalendar(getBaseContext());
+                            dialog.dismiss();
+
+                            Intent intent = new Intent(getBaseContext(), ScheduleListActivity.class);
+                            intent.putExtra("event", event);
+                            startActivity(intent);
+                        }
+                    })
+                    .setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.dismiss();
+                        }
+                    }).create().show();
+        } else {
+            Intent intent = new Intent(getBaseContext(), ScheduleListActivity.class);
+            intent.putExtra("event", getListAdapter().getItem(position));
+            startActivity(intent);
+        }
     }
 
     @Override
@@ -210,7 +240,7 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
 
             case R.id.action_addto_calendar:
                 event = getListAdapter().getItem(info.position);
-                addToCalendar(event);
+                GoogleEvent.addToCalendar(getBaseContext(), event);
                 consumed = true;
                 break;
 
@@ -378,42 +408,6 @@ public class EventListFragment extends ListFragment implements View.OnClickListe
                         getActivity().getSharedPreferences("pref",0).edit().putInt("sort_type", index).commit();
                     }
                 }).create().show();
-    }
-
-    protected void addToCalendar(GoogleEvent event) {
-        if (TextUtils.isEmpty(event.mTitle)) {
-            Toast.makeText(getBaseContext(), "이벤트 제목이 유효하지 않아서 추가하지 못했습니다.", Toast.LENGTH_LONG).show();
-            return;
-        }
-
-        CalendarContentResolver ccr = new CalendarContentResolver(getBaseContext());
-
-        event.calcDate();
-        long start = event.mComingBirthLunar - DateUtils.DAY_IN_MILLIS;
-        long end = event.mComingBirthLunar + DateUtils.DAY_IN_MILLIS;
-        String selection = "((" + CalendarContract.Events.DTSTART + " >= " + start + ") AND (" + CalendarContract.Events.DTEND + " <= " + end + ") AND (" + CalendarContract.Events.TITLE + "='"  + event.mTitle.trim() + "'))";
-
-        ArrayList<GoogleEvent> eventList = ccr.getEventList(selection);
-        if (DEBUG_LOG) Log.e("event.mComingBirthLunar: " + MiscUtil.getDateString(null, event.mComingBirthLunar) + ", " + event.mComingBirthLunar);
-
-        if (eventList.size() < 1) {
-            long event_id = ccr.addEvent(event);
-            if (event_id < 0) {
-                Toast.makeText(getBaseContext(), "이벤트(" + event.mTitle + ") 추가 중에 알수 없는 오류가 발생했습니다.", Toast.LENGTH_LONG).show();
-            } else {
-                Toast.makeText(getBaseContext(), "이벤트(" + event.mTitle + ")를 구글캘린더에 추가하였습니다.", Toast.LENGTH_SHORT).show();
-            }
-        } else {
-            Toast.makeText(getBaseContext(), "동일한 이름(" + event.mTitle + ")의 이벤트가 존재합니다.", Toast.LENGTH_LONG).show();
-
-            Intent intent = new Intent(Intent.ACTION_VIEW);
-            // Android 2.2+
-            intent.setData(Uri.parse("content://com.android.calendar/events/" + String.valueOf(eventList.get(0).mId)));
-            // Android 2.1 and below.
-            // intent.setData(Uri.parse("content://calendar/events/" + String.valueOf(calendarEventID)));
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(intent);
-        }
     }
 
     protected void onUpdated() {

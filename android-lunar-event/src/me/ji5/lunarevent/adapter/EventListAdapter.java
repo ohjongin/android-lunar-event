@@ -7,8 +7,6 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.TextView;
 
-import java.util.Calendar;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
@@ -16,7 +14,6 @@ import me.ji5.data.GoogleCalendar;
 import me.ji5.data.GoogleEvent;
 import me.ji5.lunarevent.R;
 import me.ji5.utils.CalendarContentResolver;
-import me.ji5.utils.IcuCalendarUtil;
 import me.ji5.utils.Log;
 import me.ji5.utils.MiscUtil;
 
@@ -64,35 +61,17 @@ public class EventListAdapter extends ArrayAdapter<GoogleEvent> {
 
         GoogleEvent event = getItem(position);
         if (event == null || viewHolder == null) {
-            if (DEBUG_LOG) Log.e("GoogleEvent is NULL!!");
+            Log.e("GoogleEvent is NULL!!");
             return convertView;
         }
 
-
-        event.calcDate();
-
-        // 올해 음력 생일 계산을 위한 오늘 날짜
-        final Calendar cal_today = Calendar.getInstance();
-        cal_today.setTime(new Date());
-
-        // 양력 생일
-        Calendar cal_birth = Calendar.getInstance();
-        cal_birth.setTimeInMillis(event.mDtStart);
-
-        // 양력 생일로부터 음력 생일과 금년도 음력 생일 날짜를 계산
-        Calendar cal_birth_lunar = IcuCalendarUtil.getLunarCalendar(cal_birth);
-
-        // 올해 생일
-        Calendar coming_birth = Calendar.getInstance();
-        coming_birth.set(cal_today.get(Calendar.YEAR), cal_birth_lunar.get(Calendar.MONTH), cal_birth_lunar.get(Calendar.DAY_OF_MONTH));
-        // 올해 생일이 이미 지났다면, 내년 생일로 계산
-        if (coming_birth.getTimeInMillis() < cal_today.getTimeInMillis()) {
-            coming_birth.set(cal_today.get(Calendar.YEAR) + 1, cal_birth_lunar.get(Calendar.MONTH), cal_birth_lunar.get(Calendar.DAY_OF_MONTH));
-        }
-
         viewHolder.tv_title.setText(event.mTitle);
-        viewHolder.tv_title_sub.setText("(만" + MiscUtil.getInternationalAge(event.mDtStart) + "세)");
-        viewHolder.tv_subtitle.setText(MiscUtil.getDayDurationString(MiscUtil.getDayDuration(coming_birth, cal_today)));
+        if (event.mTitle.contains("생일") || event.mTitle.contains("생신") || event.mTitle.contains("탄신") || event.mTitle.contains("태어")) {
+            viewHolder.tv_title_sub.setText("(만" + MiscUtil.getInternationalAge(event.mDtStart) + "세)");
+        } else {
+            viewHolder.tv_title_sub.setText("(만" + MiscUtil.getInternationalAge(event.mDtStart) + "년)");
+        }
+        viewHolder.tv_subtitle.setText(MiscUtil.getDayDurationString(MiscUtil.getDayDuration(event.mComingBirthLunar, System.currentTimeMillis())));
         viewHolder.tv_desc.setText(MiscUtil.getDateString(null, event.mComingBirthLunar));
         viewHolder.tv_timestamp.setText(MiscUtil.getDateString("(음력) yyyy년 M월 d일", event.mDtStartLunar));
         viewHolder.v_cal_color_bar.setBackgroundColor(mCalendarMap.get(event.mCalendarId).mColor);

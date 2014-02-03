@@ -25,5 +25,7 @@
     <string name="sort_by_birth">연령순</string>
     <string name="sort_by_recent">최근 생일순</string>
     <string name="event_deleted">이벤트가 목록에서 삭제되었습니다. 캘린더에 등록된 일정은 삭제되지 않습니다.</string>
+    <string name="dlg_title_ask_add">일정 추가</string>
+    <string name="dlg_msg_no_registered_event">구글캘린더에 등록된 일정이 없습니다. 캘린더에 음력 일정을 추가할까요?</string>
 
 </resources>

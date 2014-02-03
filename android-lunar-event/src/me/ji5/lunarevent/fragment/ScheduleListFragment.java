@@ -1,23 +1,26 @@
 package me.ji5.lunarevent.fragment;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.provider.CalendarContract;
 import android.support.v4.app.ListFragment;
-import android.text.format.DateUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ListView;
 
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 
 import me.ji5.data.GoogleEvent;
 import me.ji5.lunarevent.R;
 import me.ji5.lunarevent.adapter.ScheduleListAdapter;
-import me.ji5.utils.CalendarContentResolver;
 import me.ji5.utils.Log;
 import me.ji5.utils.MiscUtil;
 
@@ -33,6 +36,7 @@ import me.ji5.utils.MiscUtil;
  */
 public class ScheduleListFragment extends ListFragment {
     protected final static boolean DEBUG_LOG = false;
+    protected final static int CALENDAR_RANGE_YEAR = 20; // 구글캘린더 검색 범위
 
     protected OnFragmentInteractionListener mListener;
     protected GoogleEvent mEvent = new GoogleEvent();
@@ -70,6 +74,7 @@ public class ScheduleListFragment extends ListFragment {
 
         if (getActivity().getIntent() != null && getActivity().getIntent().hasExtra("event")) {
             mEvent = getActivity().getIntent().getParcelableExtra("event");
+            mEvent.calcDate();
         }
     }
 
@@ -88,20 +93,32 @@ public class ScheduleListFragment extends ListFragment {
         ArrayList<GoogleEvent> eventList = new ArrayList<GoogleEvent>();
         if (mEvent != null) {
             getActivity().setTitle(mEvent.mTitle);
-
-            CalendarContentResolver ccr = new CalendarContentResolver(getBaseContext());
-
-            mEvent.calcDate();
-            long start = (new Date()).getTime();
-            long end = mEvent.mComingBirthLunar + DateUtils.YEAR_IN_MILLIS * 5;
-            String selection = "((" + CalendarContract.Events.DTSTART + " >= " + start + ") AND (" + CalendarContract.Events.DTEND + " <= " + end + ") AND (" + CalendarContract.Events.TITLE + "='"  + mEvent.mTitle.trim() + "'))";
-
-            eventList = ccr.getEventList(selection);
             if (DEBUG_LOG) Log.e("event.mComingBirthLunar: " + MiscUtil.getDateString(null, mEvent.mComingBirthLunar) + ", " + mEvent.mComingBirthLunar);
         }
 
-        setListAdapter(new ScheduleListAdapter(getBaseContext(), R.layout.fragment_event_list_row, new ArrayList<GoogleEvent>(), mEvent));
-        getListAdapter().addAll(eventList);
+        Collections.sort(eventList, GoogleEvent.compareBirth);
+
+        Calendar cal_today = Calendar.getInstance();
+        cal_today.setTime(new Date());
+
+        int year = cal_today.get(Calendar.YEAR);
+        int i = 0;
+        do {
+            GoogleEvent event = mEvent.clone();
+            event.calcDate(year + i);
+            if (DEBUG_LOG) Log.e("[" + i + "]: " + event.toString());
+
+            if (event.mComingBirthLunar < System.currentTimeMillis()) {
+                i++;
+                continue;
+            }
+
+            event.mId = event.findEventId(getBaseContext());
+            eventList.add(event);
+            i++;
+        } while (i < CALENDAR_RANGE_YEAR);
+
+        setListAdapter(new ScheduleListAdapter(getBaseContext(), R.layout.fragment_event_list_row, eventList));
 
         registerForContextMenu(this.getListView());
 
@@ -112,9 +129,53 @@ public class ScheduleListFragment extends ListFragment {
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+
+        for(int i = 0; i < getListAdapter().getCount(); i++) {
+            getListAdapter().getItem(i).findEventId(getBaseContext());
+        }
+        getListAdapter().notifyDataSetChanged();
+    }
+
+    @Override
     public void onDetach() {
         super.onDetach();
         mListener = null;
+    }
+
+    @Override
+    public void onListItemClick(ListView listView, View view, final int position, long id) {
+        final GoogleEvent event = getListAdapter().getItem(position);
+        long event_id = event.findEventId(getBaseContext());
+
+        if (event_id < 0) {
+            AlertDialog.Builder builder = new AlertDialog.Builder(getBaseContext());
+            builder.setTitle(getBaseContext().getString(R.string.dlg_title_ask_add))
+                    .setMessage(getBaseContext().getString(R.string.dlg_msg_no_registered_event))
+                    .setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            event.mId = event.addToCalendar(getBaseContext());
+                            getListAdapter().notifyDataSetChanged();
+                            dialog.dismiss();
+                        }
+                    })
+                    .setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.dismiss();
+                        }
+                    }).create().show();
+        } else {
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            // Android 2.2+
+            intent.setData(Uri.parse("content://com.android.calendar/events/" + String.valueOf(event_id)));
+            // Android 2.1 and below.
+            // intent.setData(Uri.parse("content://calendar/events/" + String.valueOf(calendarEventID)));
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        }
     }
 
     @Override
@@ -137,7 +198,6 @@ public class ScheduleListFragment extends ListFragment {
      * >Communicating with Other Fragments</a> for more information.
      */
     public interface OnFragmentInteractionListener {
-        // TODO: Update argument type and name
         public void onFragmentInteraction(Uri uri);
     }
 
